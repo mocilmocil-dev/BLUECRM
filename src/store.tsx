@@ -41,7 +41,7 @@ const seedDatabase = async () => {
     if (usersSnap.empty) {
       console.log('Seeding users to Firebase...');
       for (const u of mockUsers) {
-        await setDoc(doc(db, 'users', u.id), u);
+        await setDoc(doc(db, 'users', u.id), JSON.parse(JSON.stringify(u)));
       }
     }
 
@@ -50,7 +50,7 @@ const seedDatabase = async () => {
     if (cosSnap.empty) {
       console.log('Seeding companies to Firebase...');
       for (const c of mockCompanies) {
-        await setDoc(doc(db, 'companies', c.id), c);
+        await setDoc(doc(db, 'companies', c.id), JSON.parse(JSON.stringify(c)));
       }
     }
 
@@ -60,7 +60,7 @@ const seedDatabase = async () => {
     let hasNewTargets = false;
     for (const t of mockTargets) {
       if (!existingTargetIds.has(t.id)) {
-        await setDoc(doc(db, 'targets', t.id), t);
+        await setDoc(doc(db, 'targets', t.id), JSON.parse(JSON.stringify(t)));
         hasNewTargets = true;
       }
     }
@@ -74,7 +74,7 @@ const seedDatabase = async () => {
     let hasNewDeals = false;
     for (const d of mockDeals) {
       if (!existingDealIds.has(d.id)) {
-        await setDoc(doc(db, 'deals', d.id), d);
+        await setDoc(doc(db, 'deals', d.id), JSON.parse(JSON.stringify(d)));
         hasNewDeals = true;
       }
     }
@@ -160,7 +160,7 @@ export const CRMProvider = ({ children }: { children: ReactNode }) => {
 
   const addCompany = async (company: Company) => {
     try {
-      await setDoc(doc(db, 'companies', company.id), company);
+      await setDoc(doc(db, 'companies', company.id), JSON.parse(JSON.stringify(company)));
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, `companies/${company.id}`);
     }
@@ -168,7 +168,7 @@ export const CRMProvider = ({ children }: { children: ReactNode }) => {
 
   const updateCompany = async (company: Company) => {
     try {
-      await setDoc(doc(db, 'companies', company.id), company);
+      await setDoc(doc(db, 'companies', company.id), JSON.parse(JSON.stringify(company)));
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, `companies/${company.id}`);
     }
@@ -184,7 +184,7 @@ export const CRMProvider = ({ children }: { children: ReactNode }) => {
 
   const addDeal = async (deal: Deal) => {
     try {
-      await setDoc(doc(db, 'deals', deal.id), deal);
+      await setDoc(doc(db, 'deals', deal.id), JSON.parse(JSON.stringify(deal)));
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, `deals/${deal.id}`);
     }
@@ -192,7 +192,7 @@ export const CRMProvider = ({ children }: { children: ReactNode }) => {
 
   const updateDeal = async (deal: Deal) => {
     try {
-      await setDoc(doc(db, 'deals', deal.id), deal);
+      await setDoc(doc(db, 'deals', deal.id), JSON.parse(JSON.stringify(deal)));
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, `deals/${deal.id}`);
     }
