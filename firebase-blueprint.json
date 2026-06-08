@@ -1,0 +1,81 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User in the CRM system",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "role": { "type": "string", "enum": ["GM", "Manager", "Sales"] },
+        "managerId": { "type": "string" }
+      },
+      "required": ["id", "name", "role"]
+    },
+    "Company": {
+      "title": "Company",
+      "description": "Company client with PIC contacts",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "industry": { "type": "string" },
+        "pics": {
+          "type": "array"
+        }
+      },
+      "required": ["id", "name", "industry", "pics"]
+    },
+    "Target": {
+      "title": "Target",
+      "description": "KPI targets per sales agent per month",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "month": { "type": "string" },
+        "productTargets": { "type": "object" }
+      },
+      "required": ["id", "userId", "month", "productTargets"]
+    },
+    "Deal": {
+      "title": "Deal",
+      "description": "CRM pipeline deal record",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "companyId": { "type": "string" },
+        "picId": { "type": "string" },
+        "salesId": { "type": "string" },
+        "products": { "type": "array" },
+        "stage": { "type": "string" },
+        "estimatedValue": { "type": "number" },
+        "actualValue": { "type": "number" },
+        "lostReason": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" },
+        "history": { "type": "array" }
+      },
+      "required": ["id", "title", "companyId", "salesId", "products", "stage", "estimatedValue", "createdAt", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profiles"
+    },
+    "/companies/{companyId}": {
+      "schema": "Company",
+      "description": "Client companies list"
+    },
+    "/targets/{targetId}": {
+      "schema": "Target",
+      "description": "Sales KPI monthly targets"
+    },
+    "/deals/{dealId}": {
+      "schema": "Deal",
+      "description": "Pipeline deals and logs"
+    }
+  }
+}
