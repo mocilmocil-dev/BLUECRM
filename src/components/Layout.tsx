@@ -138,7 +138,7 @@ export default function Layout({ children, activeTab, setActiveTab }: LayoutProp
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   useEffect(() => {
-    if (currentUser.role !== 'GM' && activeTab === 'targets') {
+    if (currentUser.role !== 'GM' && currentUser.role !== 'Manager' && activeTab === 'targets') {
       setActiveTab('dashboard');
     }
   }, [currentUser.role, activeTab, setActiveTab]);
@@ -149,8 +149,8 @@ export default function Layout({ children, activeTab, setActiveTab }: LayoutProp
     { id: 'clients', label: 'Clients', icon: Building2 },
   ];
 
-  // Only allow General Manager (GM) to configure targets
-  if (currentUser.role === 'GM') {
+  // Only allow General Manager (GM) and Manager to configure targets
+  if (currentUser.role === 'GM' || currentUser.role === 'Manager') {
     navItems.push({ id: 'targets', label: 'Set KPI Targets', icon: TargetIcon });
   }
 

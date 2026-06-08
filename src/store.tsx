@@ -176,7 +176,7 @@ export const CRMProvider = ({ children }: { children: ReactNode }) => {
 
   const updateTarget = async (target: Target) => {
     try {
-      await setDoc(doc(db, 'targets', target.id), target);
+      await setDoc(doc(db, 'targets', target.id), JSON.parse(JSON.stringify(target)));
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, `targets/${target.id}`);
     }

@@ -5,10 +5,16 @@ import { formatIDR } from '../utils';
 import { Target as TargetIcon, Save, RefreshCw, AlertCircle, CheckCircle2 } from 'lucide-react';
 
 export default function Targets() {
-  const { users, targets, updateTarget } = useCRM();
+  const { users, targets, updateTarget, currentUser } = useCRM();
 
-  // Filter only Sales roles
-  const salesUsers = users.filter((u) => u.role === 'Sales');
+  // Filter only Sales roles. If Manager, return only their team members.
+  const salesUsers = users.filter((u) => {
+    if (u.role !== 'Sales') return false;
+    if (currentUser.role === 'Manager') {
+      return u.managerId === currentUser.id;
+    }
+    return true; // For GM, show all Sales
+  });
   
   const [selectedSalesId, setSelectedSalesId] = useState<string>(salesUsers[0]?.id || '');
   const [selectedMonth, setSelectedMonth] = useState<string>('2026-06');
@@ -24,6 +30,15 @@ export default function Targets() {
   });
 
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
+  // Sync selectedSalesId if salesUsers changes
+  useEffect(() => {
+    if (salesUsers.length > 0 && !salesUsers.find((u) => u.id === selectedSalesId)) {
+      setSelectedSalesId(salesUsers[0].id);
+    } else if (salesUsers.length === 0) {
+      setSelectedSalesId('');
+    }
+  }, [salesUsers, selectedSalesId]);
 
   // Load target for selected sales user and month
   useEffect(() => {
@@ -102,7 +117,7 @@ export default function Targets() {
       <div className="mb-8">
         <h1 className="text-3xl font-bold tracking-tight text-white mb-1">Set Sales Targets (KPI)</h1>
         <p className="text-slate-400">
-          General Manager panel to establish Revenue-based targets globally per Sales Representative.
+          Management panel to establish target KPIs.
         </p>
       </div>
 

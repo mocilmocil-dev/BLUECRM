@@ -7,29 +7,17 @@ import { ChevronLeft, TrendingUp, Target, Briefcase, Award, Zap } from 'lucide-r
 export default function Dashboard() {
   const { currentUser, deals, targets, users } = useCRM();
 
-  const getVisibleUserIds = () => {
-    if (currentUser.role === 'GM' || currentUser.role === 'Manager') {
-      return users.filter(u => u.role === 'Sales').map(u => u.id);
-    } else {
-      const myTeam = users.filter(u => u.managerId === currentUser.managerId && u.role === 'Sales');
-      return myTeam.map(u => u.id);
-    }
-  };
-
-  const visibleSalesIds = getVisibleUserIds();
-
-  // Calculations
-  const metrics = useMemo(() => {
+  // Calculations Helper
+  const calculateMetrics = (salesIds: string[]) => {
     let totalTarget = 0;
     let totalActual = 0;
-
     const productMetrics = PRODUCT_CATEGORIES.reduce((acc, cat) => {
       acc[cat] = { target: 0, actual: 0 };
       return acc;
     }, {} as Record<ProductCategory, { target: number; actual: number }>);
 
     targets.forEach(t => {
-      if (visibleSalesIds.includes(t.userId)) {
+      if (salesIds.includes(t.userId)) {
         PRODUCT_CATEGORIES.forEach(cat => {
           productMetrics[cat].target += t.productTargets[cat] || 0;
           totalTarget += t.productTargets[cat] || 0;
@@ -43,15 +31,14 @@ export default function Dashboard() {
     let lostDealsCount = 0;
 
     deals.forEach(d => {
-      if (visibleSalesIds.includes(d.salesId)) {
+      if (salesIds.includes(d.salesId)) {
         if (d.stage === 'Won') {
           const val = d.actualValue || 0;
           const prods = d.products || [];
-          let totalEst = d.products?.reduce((acc, p) => acc + (p.estimatedValue * (p.quantity || 1)), 0) || 1;
+          let totalEst = prods.reduce((acc, p) => acc + (p.estimatedValue * (p.quantity || 1)), 0);
           if (totalEst === 0) totalEst = 1; // prevent div by zero
           prods.forEach(p => {
              if (productMetrics[p.category]) {
-               // Distribute actual value proportional to their estimated value
                const proportion = (p.estimatedValue * (p.quantity || 1)) / totalEst;
                productMetrics[p.category].actual += Math.round(val * proportion);
              }
@@ -78,7 +65,21 @@ export default function Dashboard() {
       activePipelineValue,
       winRate
     };
-  }, [deals, targets, visibleSalesIds]);
+  };
+
+  const allSalesIds = useMemo(() => users.filter(u => u.role === 'Sales').map(u => u.id), [users]);
+  const myTeamIds = useMemo(() => users.filter(u => u.managerId === (currentUser.role === 'Manager' ? currentUser.id : currentUser.managerId) && u.role === 'Sales').map(u => u.id), [users, currentUser]);
+  const myIndividualIds = [currentUser.id];
+
+  const visibleSalesIds = currentUser.role === 'GM' || currentUser.role === 'Manager' ? allSalesIds : myTeamIds;
+
+  const metrics = useMemo(() => calculateMetrics(visibleSalesIds), [deals, targets, visibleSalesIds]);
+  
+  const personalMetrics = useMemo(() => {
+    if (currentUser.role === 'Sales') return calculateMetrics(myIndividualIds);
+    if (currentUser.role === 'Manager') return calculateMetrics(myTeamIds);
+    return null;
+  }, [deals, targets, currentUser, myTeamIds]);
 
   const globalProgress = metrics.totalTarget > 0 ? (metrics.totalActual / metrics.totalTarget) * 100 : 0;
 
@@ -195,38 +196,83 @@ export default function Dashboard() {
         {/* Left Column: Progress & Target */ }
         <div className="lg:col-span-2 space-y-6">
           
-          {/* Global Target Progress */}
-          <div className="rounded-3xl border border-white/10 bg-white/5 backdrop-blur-md p-6 relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
-            
-            <div className="relative z-10">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="h-10 w-10 bg-indigo-500/20 rounded-xl flex items-center justify-center">
-                  <Target className="h-5 w-5 text-indigo-400" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-white text-lg">Goal Trajectory</h3>
-                  <p className="text-xs text-slate-400 font-medium">Tracking towards {formatIDR(metrics.totalTarget)}</p>
-                </div>
-              </div>
-              
-              <div className="flex items-end justify-between mb-3">
-                <div className="text-4xl font-mono font-bold tracking-tight text-white flex items-end gap-3">
-                  {formatIDR(metrics.totalActual)} 
-                  <span className="text-lg text-slate-500 font-medium pb-1">/ {formatIDR(metrics.totalTarget)}</span>
-                </div>
-                <div className="text-right">
-                  <div className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-emerald-400">
-                    {globalProgress.toFixed(1)}%
+          <div className={`grid grid-cols-1 ${personalMetrics ? 'xl:grid-cols-2' : ''} gap-6`}>
+            {/* Personal/Team Target Progress */}
+            {personalMetrics && (
+              <div className="rounded-3xl border border-emerald-500/10 bg-emerald-900/10 backdrop-blur-md p-6 relative overflow-hidden flex flex-col justify-between">
+                <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
+                
+                <div className="relative z-10">
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="h-10 w-10 bg-emerald-500/20 rounded-xl flex items-center justify-center shrink-0">
+                      <Target className="h-5 w-5 text-emerald-400" />
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-white text-lg">
+                        {currentUser.role === 'Sales' ? 'My Individual Trajectory' : 'My Team Trajectory'}
+                      </h3>
+                      <p className="text-xs text-emerald-400/70 font-medium">Tracking towards {formatIDR(personalMetrics.totalTarget)}</p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex flex-wrap items-end justify-between mb-3 gap-2">
+                    <div className="text-3xl 2xl:text-4xl font-mono font-bold tracking-tight text-white flex flex-wrap items-baseline gap-2">
+                      {formatIDR(personalMetrics.totalActual)} 
+                      <span className="text-sm 2xl:text-lg text-emerald-500/70 font-medium">/ {formatIDR(personalMetrics.totalTarget)}</span>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-emerald-400 to-teal-400">
+                        {personalMetrics.totalTarget > 0 ? ((personalMetrics.totalActual / personalMetrics.totalTarget) * 100).toFixed(1) : '0.0'}%
+                      </div>
+                    </div>
+                  </div>
+                  <div className="h-3 w-full overflow-hidden rounded-full bg-slate-800 shadow-inner mt-4">
+                    <div 
+                      className="h-full bg-gradient-to-r from-emerald-500 to-teal-400 transition-all duration-1000 ease-out relative"
+                      style={{ width: `${Math.min(personalMetrics.totalTarget > 0 ? (personalMetrics.totalActual / personalMetrics.totalTarget) * 100 : 0, 100)}%` }}
+                    >
+                      <div className="absolute inset-0 bg-white/20 w-full h-full animate-pulse"></div>
+                    </div>
                   </div>
                 </div>
               </div>
-              <div className="h-3 w-full overflow-hidden rounded-full bg-slate-800 shadow-inner">
-                <div 
-                  className="h-full bg-gradient-to-r from-indigo-500 via-blue-500 to-emerald-400 transition-all duration-1000 ease-out relative"
-                  style={{ width: `${Math.min(globalProgress, 100)}%` }}
-                >
-                  <div className="absolute inset-0 bg-white/20 w-full h-full animate-pulse"></div>
+            )}
+
+            {/* Global Target Progress */}
+            <div className="rounded-3xl border border-white/10 bg-white/5 backdrop-blur-md p-6 relative overflow-hidden flex flex-col justify-between">
+              <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
+              
+              <div className="relative z-10">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="h-10 w-10 bg-indigo-500/20 rounded-xl flex items-center justify-center shrink-0">
+                    <Target className="h-5 w-5 text-indigo-400" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-white text-lg">
+                      {currentUser.role === 'Sales' ? 'Team Trajectory' : 'Company Trajectory'}
+                    </h3>
+                    <p className="text-xs text-slate-400 font-medium">Tracking towards {formatIDR(metrics.totalTarget)}</p>
+                  </div>
+                </div>
+                
+                <div className="flex flex-wrap items-end justify-between mb-3 gap-2">
+                  <div className="text-3xl 2xl:text-4xl font-mono font-bold tracking-tight text-white flex flex-wrap items-baseline gap-2">
+                    {formatIDR(metrics.totalActual)} 
+                    <span className="text-sm 2xl:text-lg text-slate-500 font-medium">/ {formatIDR(metrics.totalTarget)}</span>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-emerald-400">
+                      {globalProgress.toFixed(1)}%
+                    </div>
+                  </div>
+                </div>
+                <div className="h-3 w-full overflow-hidden rounded-full bg-slate-800 shadow-inner">
+                  <div 
+                    className="h-full bg-gradient-to-r from-indigo-500 via-blue-500 to-emerald-400 transition-all duration-1000 ease-out relative"
+                    style={{ width: `${Math.min(globalProgress, 100)}%` }}
+                  >
+                    <div className="absolute inset-0 bg-white/20 w-full h-full animate-pulse"></div>
+                  </div>
                 </div>
               </div>
             </div>
