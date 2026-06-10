@@ -1,13 +1,15 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useCRM } from '../store';
 import { DealStage, DEAL_STAGES, PRODUCT_CATEGORIES, Deal, ProductCategory, DealHistoryEntry, DealProduct } from '../types';
 import { formatIDR, parseIDR } from '../utils';
-import { MoreHorizontal, Plus, AlertCircle, Clock, CalendarDays, X, ChevronDown, ChevronUp } from 'lucide-react';
+import { Search, ArrowUpDown, MoreHorizontal, Plus, AlertCircle, Clock, CalendarDays, X, ChevronDown, ChevronUp, Car, Edit2 } from 'lucide-react';
 
 export default function Pipeline() {
-  const { currentUser, users, deals, companies, addDeal, updateDeal } = useCRM();
+  const { currentUser, users, deals, companies, units, drivers, addDeal, updateDeal, updateUnit, updateDriver } = useCRM();
   
   const [selectedSalesFilter, setSelectedSalesFilter] = useState<string>('all');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [sortOption, setSortOption] = useState<'newest' | 'oldest' | 'highest' | 'lowest'>('newest');
 
   const getVisibleUserIds = () => {
     if (currentUser.role === 'GM' || currentUser.role === 'Manager') {
@@ -21,11 +23,38 @@ export default function Pipeline() {
   const visibleSalesIds = getVisibleUserIds();
   const filterOptions = users.filter(u => visibleSalesIds.includes(u.id));
 
-  const visibleDeals = deals.filter(d => {
-    if (!visibleSalesIds.includes(d.salesId)) return false;
-    if (selectedSalesFilter !== 'all' && d.salesId !== selectedSalesFilter) return false;
-    return true;
-  });
+  const visibleDeals = useMemo(() => {
+    let filtered = deals.filter(d => {
+      if (!visibleSalesIds.includes(d.salesId)) return false;
+      if (selectedSalesFilter !== 'all' && d.salesId !== selectedSalesFilter) return false;
+      
+      if (searchTerm) {
+        const searchLower = searchTerm.toLowerCase();
+        const company = companies.find(c => c.id === d.companyId);
+        const companyName = company ? company.name.toLowerCase() : '';
+        if (!d.title.toLowerCase().includes(searchLower) && !companyName.includes(searchLower)) {
+          return false;
+        }
+      }
+      return true;
+    });
+
+    filtered.sort((a, b) => {
+      switch (sortOption) {
+        case 'oldest':
+          return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+        case 'highest':
+          return b.estimatedValue - a.estimatedValue;
+        case 'lowest':
+          return a.estimatedValue - b.estimatedValue;
+        case 'newest':
+        default:
+          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      }
+    });
+
+    return filtered;
+  }, [deals, visibleSalesIds, selectedSalesFilter, searchTerm, sortOption, companies]);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingDeal, setEditingDeal] = useState<Partial<Deal> | null>(null);
@@ -35,12 +64,18 @@ export default function Pipeline() {
   const [transitionDate, setTransitionDate] = useState<string>(new Date().toISOString());
   const [note, setNote] = useState<string>('');
   const [expandedHistoryId, setExpandedHistoryId] = useState<string | null>(null);
+  const [selectedUnitIds, setSelectedUnitIds] = useState<string[]>([]);
+  const [unitLocationFilter, setUnitLocationFilter] = useState<string>('All');
+  const [selectedDriverIds, setSelectedDriverIds] = useState<string[]>([]);
+  const [driverLocationFilter, setDriverLocationFilter] = useState<string>('All');
 
   const openStageModal = (deal: Deal, stage: DealStage) => {
     setEditingDeal(deal);
     setTargetStage(stage);
     setTransitionDate(new Date().toISOString());
     setNote('');
+    setSelectedUnitIds(units.filter(u => u.assignedDealId === deal.id).map(u => u.id));
+    setSelectedDriverIds(drivers.filter(d => d.assignedDealId === deal.id).map(d => d.id));
     setModalMode('edit-stage');
     setIsModalOpen(true);
   };
@@ -63,6 +98,8 @@ export default function Pipeline() {
     setTargetStage('Call/Meeting');
     setModalMode('create');
     setNote('');
+    setSelectedUnitIds([]);
+    setSelectedDriverIds([]);
     setIsModalOpen(true);
   };
 
@@ -91,6 +128,34 @@ export default function Pipeline() {
         history: [newHistoryEntry],
       } as Deal;
       addDeal(newDeal);
+      
+      if (selectedUnitIds.length > 0 && (targetStage === 'Negotiation' || targetStage === 'Won')) {
+        const newStatus = targetStage === 'Won' ? 'Booked' : 'Hold';
+        selectedUnitIds.forEach(id => {
+          const u = units.find(unit => unit.id === id);
+          if (u) {
+            updateUnit({
+              ...u,
+              status: newStatus,
+              assignedDealId: newDeal.id
+            });
+          }
+        });
+      }
+
+      if (selectedDriverIds.length > 0 && (targetStage === 'Negotiation' || targetStage === 'Won')) {
+        const newStatus = targetStage === 'Won' ? 'Assigned' : 'Reserved';
+        selectedDriverIds.forEach(id => {
+          const d = drivers.find(drv => drv.id === id);
+          if (d) {
+            updateDriver({
+              ...d,
+              status: newStatus,
+              assignedDealId: newDeal.id
+            });
+          }
+        });
+      }
     } else if (modalMode === 'edit-stage' && editingDeal) {
       if (!editingDeal.id) return;
       const fullDeal = deals.find(d => d.id === editingDeal.id);
@@ -123,6 +188,38 @@ export default function Pipeline() {
       }
 
       updateDeal(updated);
+
+      const currentlyAssignedUnits = units.filter(u => u.assignedDealId === updated.id);
+      const currentlyAssignedDrivers = drivers.filter(d => d.assignedDealId === updated.id);
+      
+      if (targetStage === 'Negotiation' || targetStage === 'Won') {
+        const unitsToRelease = currentlyAssignedUnits.filter(u => !selectedUnitIds.includes(u.id));
+        unitsToRelease.forEach(u => updateUnit({ ...u, status: 'Available', assignedDealId: null }));
+
+        const newStatus = targetStage === 'Won' ? 'Booked' : 'Hold';
+
+        selectedUnitIds.forEach(id => {
+          const u = units.find(unit => unit.id === id);
+          if (u && (u.assignedDealId !== updated.id || u.status !== newStatus)) {
+            updateUnit({ ...u, status: newStatus, assignedDealId: updated.id });
+          }
+        });
+
+        const driversToRelease = currentlyAssignedDrivers.filter(d => !selectedDriverIds.includes(d.id));
+        driversToRelease.forEach(d => updateDriver({ ...d, status: 'Available', assignedDealId: null }));
+
+        const newDriverStatus = targetStage === 'Won' ? 'Assigned' : 'Reserved';
+
+        selectedDriverIds.forEach(id => {
+          const d = drivers.find(drv => drv.id === id);
+          if (d && (d.assignedDealId !== updated.id || d.status !== newDriverStatus)) {
+            updateDriver({ ...d, status: newDriverStatus as any, assignedDealId: updated.id });
+          }
+        });
+      } else {
+        currentlyAssignedUnits.forEach(u => updateUnit({ ...u, status: 'Available', assignedDealId: null }));
+        currentlyAssignedDrivers.forEach(d => updateDriver({ ...d, status: 'Available', assignedDealId: null }));
+      }
     }
     setIsModalOpen(false);
   };
@@ -134,7 +231,30 @@ export default function Pipeline() {
           <h1 className="text-3xl font-bold tracking-tight text-white mb-1">Active Pipeline Funnel</h1>
           <p className="text-slate-400">Manage your deals across sales stages.</p>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex flex-col md:flex-row items-start md:items-center gap-4">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Search deals or companies..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="rounded-xl border border-white/10 bg-[#161d2e] pl-9 pr-4 py-2 text-sm text-white outline-none focus:border-indigo-500 w-full md:w-64"
+            />
+          </div>
+          <div className="relative flex items-center">
+            <ArrowUpDown className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <select
+              className="rounded-xl border border-white/10 bg-[#161d2e] pl-9 pr-4 py-2 text-sm text-white outline-none focus:border-indigo-500 appearance-none"
+              value={sortOption}
+              onChange={(e) => setSortOption(e.target.value as any)}
+            >
+              <option value="newest">Newest First</option>
+              <option value="oldest">Oldest First</option>
+              <option value="highest">Highest Value</option>
+              <option value="lowest">Lowest Value</option>
+            </select>
+          </div>
           {(currentUser.role === 'GM' || currentUser.role === 'Manager') && (
             <select
               className="rounded-xl border border-white/10 bg-[#161d2e] px-4 py-2 text-sm text-white outline-none focus:border-indigo-500"
@@ -150,7 +270,7 @@ export default function Pipeline() {
           {currentUser.role === 'Sales' && (
             <button 
               onClick={handleCreateNew}
-              className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 shadow-md shadow-indigo-600/20 transition"
+              className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 shadow-md shadow-indigo-600/20 transition whitespace-nowrap"
             >
               <Plus className="h-4 w-4" /> New Deal
             </button>
@@ -176,7 +296,14 @@ export default function Pipeline() {
                       <h4 className="font-bold text-white text-sm leading-tight">{deal.title}</h4>
                       
                       {currentUser.role === 'Sales' && currentUser.id === deal.salesId && (
-                        <div>
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => openStageModal(deal, deal.stage)}
+                            className="p-1 rounded text-slate-400 hover:text-indigo-400 hover:bg-indigo-500/10 transition-colors"
+                            title="Edit Stage Details & Units"
+                          >
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </button>
                           <select 
                             className="text-xs bg-indigo-500/10 border-indigo-500/30 border outline-none rounded-lg text-indigo-300 font-medium py-1 px-2 cursor-pointer hover:bg-indigo-500/20 transition-colors"
                             value={deal.stage}
@@ -211,7 +338,7 @@ export default function Pipeline() {
                       </div>
                     </div>
                     
-                    <div className="flex items-center justify-between mt-3 mb-2">
+                    <div className="flex flex-wrap items-center justify-between gap-2 mt-3 mb-2">
                       <div className="flex flex-wrap gap-1">
                         {(deal.products || []).map((p, i) => (
                            <span key={i} className="inline-flex items-center rounded-lg bg-indigo-500/20 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-indigo-300 ring-1 ring-inset ring-indigo-500/30">
@@ -223,6 +350,40 @@ export default function Pipeline() {
                         {formatIDR(deal.stage === 'Won' ? deal.actualValue : deal.estimatedValue)}
                       </span>
                     </div>
+
+                    {(() => {
+                      const assignedUnits = units.filter(u => u.assignedDealId === deal.id);
+                      if (assignedUnits.length > 0 && (deal.stage === 'Negotiation' || deal.stage === 'Won')) {
+                        const statusColor = deal.stage === 'Won' ? 'text-emerald-300 bg-emerald-500/10 border-emerald-500/20' : 'text-amber-300 bg-amber-500/10 border-amber-500/20';
+                        return (
+                          <div className={`mb-2 text-[10px] font-medium p-2 rounded-lg flex items-start gap-1.5 border ${statusColor}`}>
+                            <Car className="w-3 h-3 shrink-0 mt-0.5" />
+                            <div className="flex flex-col">
+                              <span className="font-bold mb-0.5">Fleet {assignedUnits[0].status} ({assignedUnits.length}):</span>
+                              <span>{assignedUnits.map(u => u.plateNumber).join(', ')}</span>
+                            </div>
+                          </div>
+                        );
+                      }
+                      return null;
+                    })()}
+
+                    {(() => {
+                      const assignedDrivers = drivers.filter(d => d.assignedDealId === deal.id);
+                      if (assignedDrivers.length > 0 && (deal.stage === 'Negotiation' || deal.stage === 'Won')) {
+                        const statusColor = deal.stage === 'Won' ? 'text-emerald-300 bg-emerald-500/10 border-emerald-500/20' : 'text-amber-300 bg-amber-500/10 border-amber-500/20';
+                        return (
+                          <div className={`mb-2 text-[10px] font-medium p-2 rounded-lg flex items-start gap-1.5 border ${statusColor}`}>
+                            <div className="w-3 h-3 shrink-0 mt-0.5 bg-current rounded-full" style={{ maskImage: "url('data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z\"/></svg>')", WebkitMaskImage: "url('data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2\" /><circle cx=\"12\" cy=\"7\" r=\"4\" /></svg>')" }}></div>
+                            <div className="flex flex-col">
+                              <span className="font-bold mb-0.5">Driver {assignedDrivers[0].status} ({assignedDrivers.length}):</span>
+                              <span>{assignedDrivers.map(d => d.name).join(', ')}</span>
+                            </div>
+                          </div>
+                        );
+                      }
+                      return null;
+                    })()}
 
                     <button
                       onClick={() => openHistoryModal(deal)}
@@ -250,7 +411,7 @@ export default function Pipeline() {
           <div className="w-full max-w-md rounded-3xl bg-[#161d2e] shadow-2xl border border-white/10 flex flex-col">
             <div className="p-6 border-b border-white/5">
               <h2 className="text-lg font-bold text-white">
-                {modalMode === 'create' ? 'Create New Deal' : modalMode === 'history' ? 'Deal History' : `Move to ${targetStage}`}
+                {modalMode === 'create' ? 'Create New Deal' : modalMode === 'history' ? 'Deal History' : (editingDeal?.stage === targetStage ? `Update Stage: ${targetStage}` : `Move to ${targetStage}`)}
               </h2>
             </div>
             
@@ -518,6 +679,163 @@ export default function Pipeline() {
                   </div>
                 </div>
               )}
+
+              {(() => {
+                const isEligibleStage = (modalMode === 'create' || modalMode === 'edit-stage') && (targetStage === 'Negotiation' || targetStage === 'Won');
+                const longTermItem = editingDeal?.products?.find(p => p.category === 'Mobil Long Term');
+                const reqQty = longTermItem ? (longTermItem.quantity || 1) : 0;
+                
+                if (isEligibleStage && reqQty > 0) {
+                  const statusDesc = targetStage === 'Won' ? 'Booked' : 'Hold';
+                  return (
+                    <div className="mt-4 p-4 rounded-xl border border-indigo-500/30 bg-indigo-500/5">
+                      <div className="flex justify-between items-center mb-1.5">
+                        <label className="block text-xs font-bold text-indigo-300 uppercase tracking-widest">
+                          Link Fleet Unit(s) (Optional)
+                        </label>
+                        <select
+                          className="bg-[#161d2e] border border-indigo-500/20 text-xs text-indigo-300 rounded-lg px-2 py-1 outline-none focus:border-indigo-500"
+                          value={unitLocationFilter}
+                          onChange={(e) => setUnitLocationFilter(e.target.value)}
+                        >
+                          <option value="All">All Locations</option>
+                          <option value="Jakarta">Jakarta</option>
+                          <option value="Surabaya">Surabaya</option>
+                        </select>
+                      </div>
+                      <div className="flex justify-between items-center mb-3 mt-2">
+                        <p className="text-[11px] text-indigo-400/70 leading-relaxed pr-2">
+                          Since this deal includes Mobil Long Term (Qty: {reqQty}), you can optionally secure up to {reqQty} available units. They will be put on {statusDesc}.
+                        </p>
+                        <span className="text-xs font-bold text-indigo-300 bg-indigo-500/20 px-2 py-1 rounded-md shrink-0">
+                          {selectedUnitIds.length} / {reqQty} Selected
+                        </span>
+                      </div>
+                      
+                      <div className="max-h-40 overflow-y-auto space-y-2 pr-2">
+                        {(() => {
+                          const validUnits = units.filter(u => 
+                            (u.status === 'Available' || (['Hold', 'Booked', 'Rent Out'].includes(u.status) && u.assignedDealId === editingDeal?.id)) && 
+                            u.category === 'Mobil Long Term' && 
+                            (unitLocationFilter === 'All' || u.location === unitLocationFilter)
+                          );
+                          
+                          if (validUnits.length === 0) {
+                            return <div className="text-xs text-slate-500 py-2">No available units that match criteria.</div>;
+                          }
+                          
+                          return validUnits.map(u => {
+                            const isSelected = selectedUnitIds.includes(u.id);
+                            const isDisabled = !isSelected && selectedUnitIds.length >= reqQty;
+                            return (
+                              <label key={u.id} className={`flex items-center gap-3 p-2.5 rounded-lg border cursor-pointer transition-colors ${isSelected ? 'bg-indigo-500/20 border-indigo-500/50' : isDisabled ? 'opacity-50 cursor-not-allowed border-white/5 bg-white/5' : 'border-white/10 bg-[#161d2e] hover:border-indigo-500/30'}`}>
+                                <input
+                                  type="checkbox"
+                                  className="rounded border-white/20 bg-black/20 text-indigo-500 focus:ring-indigo-500 w-4 h-4"
+                                  checked={isSelected}
+                                  disabled={isDisabled}
+                                  onChange={(e) => {
+                                    if (e.target.checked) {
+                                      if (selectedUnitIds.length < reqQty) {
+                                        setSelectedUnitIds([...selectedUnitIds, u.id]);
+                                      }
+                                    } else {
+                                      setSelectedUnitIds(selectedUnitIds.filter(id => id !== u.id));
+                                    }
+                                  }}
+                                />
+                                <div className="flex flex-col">
+                                  <span className="text-sm font-semibold text-white">{u.plateNumber}</span>
+                                  <span className="text-xs text-slate-400">{u.model} - {u.location}</span>
+                                </div>
+                              </label>
+                            );
+                          });
+                        })()}
+                      </div>
+                    </div>
+                  );
+                }
+                return null;
+              })()}
+
+              {(() => {
+                const isEligibleStage = (modalMode === 'create' || modalMode === 'edit-stage') && (targetStage === 'Negotiation' || targetStage === 'Won');
+                const supirItem = editingDeal?.products?.find(p => p.category === 'Supir');
+                const reqQty = supirItem ? (supirItem.quantity || 1) : 0;
+                
+                if (isEligibleStage && reqQty > 0) {
+                  const statusDesc = targetStage === 'Won' ? 'Assigned' : 'Reserved';
+                  return (
+                    <div className="mt-4 p-4 rounded-xl border border-indigo-500/30 bg-indigo-500/5">
+                      <div className="flex justify-between items-center mb-1.5">
+                        <label className="block text-xs font-bold text-indigo-300 uppercase tracking-widest">
+                          Link Driver(s) (Optional)
+                        </label>
+                        <select
+                          className="bg-[#161d2e] border border-indigo-500/20 text-xs text-indigo-300 rounded-lg px-2 py-1 outline-none focus:border-indigo-500"
+                          value={driverLocationFilter}
+                          onChange={(e) => setDriverLocationFilter(e.target.value)}
+                        >
+                          <option value="All">All Locations</option>
+                          <option value="Jakarta">Jakarta</option>
+                          <option value="Surabaya">Surabaya</option>
+                        </select>
+                      </div>
+                      <div className="flex justify-between items-center mb-3 mt-2">
+                        <p className="text-[11px] text-indigo-400/70 leading-relaxed pr-2">
+                          Since this deal includes Supir (Qty: {reqQty}), you can optionally secure up to {reqQty} available drivers. They will be put on {statusDesc}.
+                        </p>
+                        <span className="text-xs font-bold text-indigo-300 bg-indigo-500/20 px-2 py-1 rounded-md shrink-0">
+                          {selectedDriverIds.length} / {reqQty} Selected
+                        </span>
+                      </div>
+                      
+                      <div className="max-h-40 overflow-y-auto space-y-2 pr-2">
+                        {(() => {
+                          const validDrivers = drivers.filter(d => 
+                            (d.status === 'Available' || (['Reserved', 'Assigned'].includes(d.status) && d.assignedDealId === editingDeal?.id)) && 
+                            (driverLocationFilter === 'All' || d.location === driverLocationFilter)
+                          );
+                          
+                          if (validDrivers.length === 0) {
+                            return <div className="text-xs text-slate-500 py-2">No available drivers that match criteria.</div>;
+                          }
+                          
+                          return validDrivers.map(d => {
+                            const isSelected = selectedDriverIds.includes(d.id);
+                            const isDisabled = !isSelected && selectedDriverIds.length >= reqQty;
+                            return (
+                              <label key={d.id} className={`flex items-center gap-3 p-2.5 rounded-lg border cursor-pointer transition-colors ${isSelected ? 'bg-indigo-500/20 border-indigo-500/50' : isDisabled ? 'opacity-50 cursor-not-allowed border-white/5 bg-white/5' : 'border-white/10 bg-[#161d2e] hover:border-indigo-500/30'}`}>
+                                <input
+                                  type="checkbox"
+                                  className="rounded border-white/20 bg-black/20 text-indigo-500 focus:ring-indigo-500 w-4 h-4"
+                                  checked={isSelected}
+                                  disabled={isDisabled}
+                                  onChange={(e) => {
+                                    if (e.target.checked) {
+                                      if (selectedDriverIds.length < reqQty) {
+                                        setSelectedDriverIds([...selectedDriverIds, d.id]);
+                                      }
+                                    } else {
+                                      setSelectedDriverIds(selectedDriverIds.filter(id => id !== d.id));
+                                    }
+                                  }}
+                                />
+                                <div className="flex flex-col">
+                                  <span className="text-sm font-semibold text-white">{d.name}</span>
+                                  <span className="text-xs text-slate-400">{d.phone} - {d.location}</span>
+                                </div>
+                              </label>
+                            );
+                          });
+                        })()}
+                      </div>
+                    </div>
+                  );
+                }
+                return null;
+              })()}
 
               {targetStage === 'Won' && modalMode !== 'history' && (
                 <div className="bg-emerald-500/10 text-emerald-300 p-4 rounded-2xl text-sm border border-emerald-500/20">

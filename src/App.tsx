@@ -5,16 +5,20 @@ import Dashboard from './components/Dashboard';
 import Pipeline from './components/Pipeline';
 import Clients from './components/Clients';
 import Targets from './components/Targets';
+import Units from './components/Units';
+import Drivers from './components/Drivers';
 
 function AppContent() {
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'pipeline' | 'clients' | 'targets'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'pipeline' | 'clients' | 'targets' | 'units' | 'drivers'>('units');
 
   return (
-    <Layout activeTab={activeTab} setActiveTab={setActiveTab}>
+    <Layout activeTab={activeTab} setActiveTab={setActiveTab as any}>
       {activeTab === 'dashboard' && <Dashboard />}
       {activeTab === 'pipeline' && <Pipeline />}
       {activeTab === 'clients' && <Clients />}
       {activeTab === 'targets' && <Targets />}
+      {activeTab === 'units' && <Units />}
+      {activeTab === 'drivers' && <Drivers />}
     </Layout>
   );
 }

@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { useCRM } from '../store';
-import { Building2, Mail, Phone, Plus, ChevronRight, Edit3, Search, Filter } from 'lucide-react';
+import { Building2, Mail, Phone, Plus, ChevronRight, Edit3, Search, Filter, CalendarDays, User, Tag } from 'lucide-react';
 import { Company, PIC } from '../types';
+import { formatIDR } from '../utils';
 
 export default function Clients() {
-  const { currentUser, companies, addCompany, updateCompany } = useCRM();
+  const { currentUser, companies, addCompany, updateCompany, deals, users } = useCRM();
   
   // Create / Edit modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -214,7 +215,7 @@ export default function Clients() {
                )}
             </div>
             
-            <div className="p-6 flex-1 bg-transparent">
+            <div className="p-6 flex-1 bg-transparent overflow-y-auto max-h-[60vh]">
               <h4 className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-4">PIC Contacts</h4>
               <div className="space-y-3">
                 {selectedCompany.pics.map(pic => (
@@ -235,6 +236,50 @@ export default function Clients() {
                 {selectedCompany.pics.length === 0 && (
                    <p className="text-sm text-slate-400 italic">No contacts added.</p>
                 )}
+              </div>
+
+              <h4 className="text-xs font-bold uppercase tracking-widest text-slate-400 mt-8 mb-4">Pipeline Deals</h4>
+              <div className="space-y-3">
+                {(() => {
+                  const companyDeals = deals.filter(d => {
+                    if (d.companyId !== selectedCompany.id) return false;
+                    // Sales can only see their own deals
+                    if (currentUser.role === 'Sales' && d.salesId !== currentUser.id) return false;
+                    return true;
+                  });
+
+                  if (companyDeals.length === 0) {
+                    return <p className="text-sm text-slate-400 italic">No deals found for this client.</p>;
+                  }
+
+                  return companyDeals.map(deal => {
+                    const salesPerson = users.find(u => u.id === deal.salesId);
+                    return (
+                      <div key={deal.id} className="bg-white/5 p-4 rounded-2xl border border-white/5 text-sm">
+                        <div className="flex justify-between items-start mb-2">
+                          <p className="font-bold text-slate-200">{deal.title}</p>
+                          <span className={`text-[10px] px-2 py-1 rounded-lg shrink-0 uppercase tracking-wider font-bold ${deal.stage === 'Won' ? 'bg-emerald-500/20 text-emerald-400' : deal.stage === 'Lost' ? 'bg-rose-500/20 text-rose-400' : 'bg-indigo-500/20 text-indigo-400'}`}>
+                            {deal.stage}
+                          </span>
+                        </div>
+                        <div className="flex flex-wrap gap-x-4 gap-y-2 text-xs text-slate-400 pt-2 border-t border-white/5">
+                          <div className="flex items-center gap-1.5">
+                            <User className="h-3.5 w-3.5" /> 
+                            {salesPerson?.name || 'Unknown'}
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <CalendarDays className="h-3.5 w-3.5" /> 
+                            {deal.month}
+                          </div>
+                          <div className="flex items-center gap-1.5 font-mono text-emerald-400">
+                            <Tag className="h-3.5 w-3.5" /> 
+                            {formatIDR(deal.estimatedValue || 0)}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  });
+                })()}
               </div>
             </div>
 

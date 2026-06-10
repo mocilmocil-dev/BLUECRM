@@ -26,5 +26,15 @@ service cloud.firestore {
     match /deals/{dealId} {
       allow read, write: if true;
     }
+
+    // Units Collection Rule Match
+    match /units/{unitId} {
+      allow read, write: if true;
+    }
+
+    // Drivers Collection Rule Match
+    match /drivers/{driverId} {
+      allow read, write: if true;
+    }
   }
 }

@@ -1,7 +1,20 @@
-import { User, Company, Target, Deal } from './types';
+import { User, Company, Target, Deal, Unit, Driver } from './types';
+
+export const mockDrivers: Driver[] = [
+  { id: 'dr1', name: 'Budi Santoso', phone: '081234567890', location: 'Jakarta', status: 'Available', category: 'Supir', updatedAt: new Date().toISOString() },
+  { id: 'dr2', name: 'Agus Pratama', phone: '081234567891', location: 'Jakarta', status: 'Available', category: 'Supir', updatedAt: new Date().toISOString() },
+  { id: 'dr3', name: 'Slamet Riyadi', phone: '081234567892', location: 'Surabaya', status: 'Available', category: 'Supir', updatedAt: new Date().toISOString() },
+  { id: 'dr4', name: 'Dedi Kurniawan', phone: '081234567893', location: 'Jakarta', status: 'Available', category: 'Supir', updatedAt: new Date().toISOString() },
+  { id: 'dr5', name: 'Eko Wibowo', phone: '081234567894', location: 'Jakarta', status: 'Available', category: 'Supir', updatedAt: new Date().toISOString() },
+  { id: 'dr6', name: 'Fikri Hidayat', phone: '081234567895', location: 'Surabaya', status: 'Available', category: 'Supir', updatedAt: new Date().toISOString() },
+  { id: 'dr7', name: 'Gilang Ramadhan', phone: '081234567896', location: 'Jakarta', status: 'Available', category: 'Supir', updatedAt: new Date().toISOString() },
+  { id: 'dr8', name: 'Heri Susanto', phone: '081234567897', location: 'Surabaya', status: 'Available', category: 'Supir', updatedAt: new Date().toISOString() }
+];
 
 export const mockUsers: User[] = [
   { id: 'u1', name: 'Pak Budi (GM)', role: 'GM' },
+  { id: 'u_pool_jkt', name: 'Pool Jakarta', role: 'Pool' },
+  { id: 'u_pool_sby', name: 'Pool Surabaya', role: 'Pool' },
   { id: 'u2', name: 'Siti (Manager A)', role: 'Manager' },
   { id: 'u3', name: 'Andi (Manager B)', role: 'Manager' },
   { id: 'u8', name: 'Rina (Manager C)', role: 'Manager' },
@@ -446,3 +459,99 @@ export const mockDeals: Deal[] = [
     history: [{ id: 'h27', stage: 'Negotiation', timestamp: '2026-06-04T11:00:00Z' }]
   }
 ];
+
+export const mockUnits: Unit[] = [
+  {
+    id: 'un1',
+    plateNumber: 'B 1456 KFS',
+    model: 'Toyota Avanza 1.3 G M/T',
+    location: 'Jakarta',
+    status: 'Available',
+    category: 'Mobil Long Term',
+    lastServiceDate: '2026-05-15',
+    notes: 'Pajak hidup, AC dingin.',
+    manufactureYear: '2022',
+    color: 'Hitam',
+    transmission: 'Manual',
+    fuelLevel: 80,
+    taxExpiryDate: '2027-01-15',
+    stnkExpiryDate: '2027-01-15',
+    lastOdometer: 45000,
+    updatedAt: '2026-06-01T08:00:00Z'
+  },
+  {
+    id: 'un2',
+    plateNumber: 'B 2981 TFG',
+    model: 'Toyota Innova Zenix 2.0 G',
+    location: 'Jakarta',
+    status: 'Rent Out',
+    category: 'Mobil Long Term',
+    assignedDealId: 'd1',
+    lastServiceDate: '2026-05-10',
+    notes: 'Sewa jangka panjang oleh PT Maju Bersama.',
+    manufactureYear: '2023',
+    color: 'Putih',
+    transmission: 'Automatic',
+    fuelLevel: 60,
+    taxExpiryDate: '2027-03-10',
+    stnkExpiryDate: '2028-03-10',
+    lastOdometer: 25000,
+    updatedAt: '2026-06-03T09:30:00Z'
+  },
+  {
+    id: 'un3',
+    plateNumber: 'L 8832 AA',
+    model: 'Toyota Avanza 1.3 G A/T',
+    location: 'Surabaya',
+    status: 'Available',
+    category: 'Mobil Long Term',
+    lastServiceDate: '2026-05-20',
+    notes: 'Ban baru ganti depan kiri kanan.',
+    manufactureYear: '2021',
+    color: 'Silver',
+    transmission: 'Automatic',
+    fuelLevel: 90,
+    taxExpiryDate: '2026-11-20',
+    stnkExpiryDate: '2026-11-20',
+    lastOdometer: 52000,
+    updatedAt: '2026-06-05T10:15:00Z'
+  },
+  {
+    id: 'un4',
+    plateNumber: 'L 9021 OP',
+    model: 'Mitsubishi Pajero Sport S4',
+    location: 'Surabaya',
+    status: 'Maintenance',
+    maintenanceStatus: 'In Queue',
+    category: 'Mobil Long Term',
+    lastServiceDate: '2026-06-08',
+    notes: 'Servis rutin berkala 20,000 km.',
+    manufactureYear: '2023',
+    color: 'Hitam',
+    transmission: 'Automatic',
+    fuelLevel: 30,
+    taxExpiryDate: '2027-05-01',
+    stnkExpiryDate: '2028-05-01',
+    lastOdometer: 20500,
+    updatedAt: '2026-06-08T14:00:00Z'
+  },
+  {
+    id: 'un5',
+    plateNumber: 'B 1111 SSS',
+    model: 'Toyota Hiace Premio 2.8',
+    location: 'Jakarta',
+    status: 'Available',
+    category: 'Mobil Long Term',
+    lastServiceDate: '2026-04-30',
+    notes: 'Kondisi mulus, interior bersih.',
+    manufactureYear: '2022',
+    color: 'Putih',
+    transmission: 'Manual',
+    fuelLevel: 100,
+    taxExpiryDate: '2027-02-14',
+    stnkExpiryDate: '2027-02-14',
+    lastOdometer: 35000,
+    updatedAt: '2026-06-09T11:00:00Z'
+  }
+];
+

@@ -1,4 +1,4 @@
-export type Role = 'GM' | 'Manager' | 'Sales';
+export type Role = 'GM' | 'Manager' | 'Sales' | 'Pool';
 
 export type ProductCategory = 
   | 'Mobil Short Term' 
@@ -88,4 +88,42 @@ export interface Deal {
   createdAt: string;
   updatedAt: string;
   history?: DealHistoryEntry[];
+}
+
+export type UnitStatus = 'Available' | 'Maintenance' | 'Rent Out' | 'Booked' | 'Hold';
+export type MaintenanceStatus = 'Being Serviced' | 'In Queue';
+
+export interface Unit {
+  id: string;
+  plateNumber: string;
+  model: string;
+  location: 'Jakarta' | 'Surabaya' | string;
+  status: UnitStatus;
+  maintenanceStatus?: MaintenanceStatus;
+  category: 'Mobil Long Term';
+  assignedDealId?: string | null; // linked to a won/active deal
+  lastServiceDate?: string;
+  notes?: string;
+  manufactureYear?: string;
+  color?: string;
+  transmission?: string;
+  fuelLevel?: number;
+  taxExpiryDate?: string;
+  stnkExpiryDate?: string;
+  lastOdometer?: number;
+  updatedAt: string;
+}
+
+export type DriverStatus = 'Available' | 'Reserved' | 'Assigned' | 'Leave';
+
+export interface Driver {
+  id: string;
+  name: string;
+  phone: string;
+  location: 'Jakarta' | 'Surabaya' | string;
+  status: DriverStatus;
+  category: 'Supir';
+  assignedDealId?: string | null;
+  licenseNumber?: string;
+  updatedAt: string;
 }

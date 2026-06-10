@@ -58,6 +58,48 @@
         "history": { "type": "array" }
       },
       "required": ["id", "title", "companyId", "salesId", "products", "stage", "estimatedValue", "createdAt", "updatedAt"]
+    },
+    "Unit": {
+      "title": "Unit",
+      "description": "Vehicle fleet unit managed by operational pools",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "plateNumber": { "type": "string" },
+        "model": { "type": "string" },
+        "location": { "type": "string" },
+        "status": { "type": "string" },
+        "maintenanceStatus": { "type": "string" },
+        "category": { "type": "string" },
+        "assignedDealId": { "type": "string" },
+        "notes": { "type": "string" },
+        "manufactureYear": { "type": "string" },
+        "color": { "type": "string" },
+        "transmission": { "type": "string" },
+        "fuelLevel": { "type": "number" },
+        "taxExpiryDate": { "type": "string" },
+        "stnkExpiryDate": { "type": "string" },
+        "lastOdometer": { "type": "number" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "plateNumber", "model", "location", "status", "category", "updatedAt"]
+    },
+    "Driver": {
+      "title": "Driver",
+      "description": "Supir (Driver) managed by operational pools",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "phone": { "type": "string" },
+        "location": { "type": "string" },
+        "status": { "type": "string" },
+        "category": { "type": "string" },
+        "assignedDealId": { "type": "string" },
+        "licenseNumber": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "name", "phone", "location", "status", "category", "updatedAt"]
     }
   },
   "firestore": {
@@ -76,6 +118,14 @@
     "/deals/{dealId}": {
       "schema": "Deal",
       "description": "Pipeline deals and logs"
+    },
+    "/units/{unitId}": {
+      "schema": "Unit",
+      "description": "Vehicle units for mobilized lease and fleet tracking"
+    },
+    "/drivers/{driverId}": {
+      "schema": "Driver",
+      "description": "Supir pool drivers"
     }
   }
 }

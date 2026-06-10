@@ -1,8 +1,8 @@
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
-import { User, Company, Target, Deal } from './types';
-import { mockUsers, mockCompanies, mockTargets, mockDeals } from './mockData';
+import { User, Company, Target, Deal, Unit, Driver } from './types';
+import { mockUsers, mockCompanies, mockTargets, mockDeals, mockUnits, mockDrivers } from './mockData';
 import { db, handleFirestoreError, OperationType } from './firebase';
-import { collection, onSnapshot, doc, setDoc, deleteDoc, getDocs } from 'firebase/firestore';
+import { collection, onSnapshot, doc, setDoc, deleteDoc, getDocs, writeBatch } from 'firebase/firestore';
 
 interface CRMContextType {
   currentUser: User;
@@ -17,6 +17,14 @@ interface CRMContextType {
   addDeal: (deal: Deal) => void;
   updateDeal: (deal: Deal) => void;
   deleteDeal: (dealId: string) => void;
+  units: Unit[];
+  addUnit: (unit: Unit) => void;
+  updateUnit: (unit: Unit) => void;
+  deleteUnit: (unitId: string) => void;
+  drivers: Driver[];
+  addDriver: (driver: Driver) => void;
+  updateDriver: (driver: Driver) => void;
+  deleteDriver: (driverId: string) => void;
   loading: boolean;
 }
 
@@ -35,52 +43,46 @@ const getInitialData = <T,>(key: string, defaultData: T): T => {
 };
 
 const seedDatabase = async () => {
+  const seedVersion = 'v5';
+  if (localStorage.getItem(`crm_seeded_${seedVersion}`)) {
+    return;
+  }
   try {
-    // 1. Seed Users if empty
-    const usersSnap = await getDocs(collection(db, 'users'));
-    if (usersSnap.empty) {
-      console.log('Seeding users to Firebase...');
-      for (const u of mockUsers) {
-        await setDoc(doc(db, 'users', u.id), JSON.parse(JSON.stringify(u)));
-      }
+    const batch = writeBatch(db);
+    
+    // 1. Seed Users
+    for (const u of mockUsers) {
+      batch.set(doc(db, 'users', u.id), JSON.parse(JSON.stringify(u)), { merge: true });
+    }
+    
+    // 2. Seed Companies
+    for (const c of mockCompanies) {
+      batch.set(doc(db, 'companies', c.id), JSON.parse(JSON.stringify(c)), { merge: true });
     }
 
-    // 2. Seed Companies if empty
-    const cosSnap = await getDocs(collection(db, 'companies'));
-    if (cosSnap.empty) {
-      console.log('Seeding companies to Firebase...');
-      for (const c of mockCompanies) {
-        await setDoc(doc(db, 'companies', c.id), JSON.parse(JSON.stringify(c)));
-      }
-    }
-
-    // 3. Seed Targets if missing any
-    const targetsSnap = await getDocs(collection(db, 'targets'));
-    const existingTargetIds = new Set(targetsSnap.docs.map(doc => doc.id));
-    let hasNewTargets = false;
+    // 3. Seed Targets
     for (const t of mockTargets) {
-      if (!existingTargetIds.has(t.id)) {
-        await setDoc(doc(db, 'targets', t.id), JSON.parse(JSON.stringify(t)));
-        hasNewTargets = true;
-      }
-    }
-    if (hasNewTargets) {
-      console.log('Seeded missing targets to Firebase...');
+      batch.set(doc(db, 'targets', t.id), JSON.parse(JSON.stringify(t)), { merge: true });
     }
 
-    // 4. Seed Deals if missing any
-    const dealsSnap = await getDocs(collection(db, 'deals'));
-    const existingDealIds = new Set(dealsSnap.docs.map(doc => doc.id));
-    let hasNewDeals = false;
+    // 4. Seed Deals
     for (const d of mockDeals) {
-      if (!existingDealIds.has(d.id)) {
-        await setDoc(doc(db, 'deals', d.id), JSON.parse(JSON.stringify(d)));
-        hasNewDeals = true;
-      }
+      batch.set(doc(db, 'deals', d.id), JSON.parse(JSON.stringify(d)), { merge: true });
     }
-    if (hasNewDeals) {
-      console.log('Seeded missing deals to Firebase...');
+
+    // 5. Seed Units unconditionally for mock data to ensure all new fields are present
+    for (const un of mockUnits) {
+      batch.set(doc(db, 'units', un.id), JSON.parse(JSON.stringify(un)), { merge: true });
     }
+
+    // 6. Seed Drivers
+    for (const dr of mockDrivers) {
+      batch.set(doc(db, 'drivers', dr.id), JSON.parse(JSON.stringify(dr)), { merge: true });
+    }
+
+    await batch.commit();
+    localStorage.setItem(`crm_seeded_${seedVersion}`, 'true');
+    console.log('Seeded database successfully with batch');
   } catch (error) {
     console.error('Failed to seed Firebase database:', error);
   }
@@ -92,6 +94,8 @@ export const CRMProvider = ({ children }: { children: ReactNode }) => {
   const [companies, setCompanies] = useState<Company[]>(mockCompanies);
   const [targets, setTargets] = useState<Target[]>(mockTargets);
   const [deals, setDeals] = useState<Deal[]>(mockDeals);
+  const [units, setUnits] = useState<Unit[]>(mockUnits);
+  const [drivers, setDrivers] = useState<Driver[]>(mockDrivers);
   const [loading, setLoading] = useState<boolean>(true);
 
   useEffect(() => {
@@ -103,6 +107,8 @@ export const CRMProvider = ({ children }: { children: ReactNode }) => {
     let unsubCompanies: (() => void) | undefined;
     let unsubTargets: (() => void) | undefined;
     let unsubDeals: (() => void) | undefined;
+    let unsubUnits: (() => void) | undefined;
+    let unsubDrivers: (() => void) | undefined;
 
     seedDatabase().then(() => {
       // Setup live sync with Firebase
@@ -144,9 +150,29 @@ export const CRMProvider = ({ children }: { children: ReactNode }) => {
           list.push(doc.data() as Deal);
         });
         setDeals(list);
-        setLoading(false);
       }, (err) => {
         handleFirestoreError(err, OperationType.GET, 'deals');
+      });
+
+      unsubUnits = onSnapshot(collection(db, 'units'), (snapshot) => {
+        const list: Unit[] = [];
+        snapshot.forEach((doc) => {
+          list.push(doc.data() as Unit);
+        });
+        setUnits(list);
+        setLoading(false);
+      }, (err) => {
+        handleFirestoreError(err, OperationType.GET, 'units');
+      });
+
+      unsubDrivers = onSnapshot(collection(db, 'drivers'), (snapshot) => {
+        const list: Driver[] = [];
+        snapshot.forEach((doc) => {
+          list.push(doc.data() as Driver);
+        });
+        setDrivers(list);
+      }, (err) => {
+        handleFirestoreError(err, OperationType.GET, 'drivers');
       });
     });
 
@@ -155,6 +181,8 @@ export const CRMProvider = ({ children }: { children: ReactNode }) => {
       if (unsubCompanies) unsubCompanies();
       if (unsubTargets) unsubTargets();
       if (unsubDeals) unsubDeals();
+      if (unsubUnits) unsubUnits();
+      if (unsubDrivers) unsubDrivers();
     };
   }, []);
 
@@ -206,6 +234,54 @@ export const CRMProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const addUnit = async (unit: Unit) => {
+    try {
+      await setDoc(doc(db, 'units', unit.id), JSON.parse(JSON.stringify(unit)));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, `units/${unit.id}`);
+    }
+  };
+
+  const updateUnit = async (unit: Unit) => {
+    try {
+      await setDoc(doc(db, 'units', unit.id), JSON.parse(JSON.stringify(unit)));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, `units/${unit.id}`);
+    }
+  };
+
+  const deleteUnit = async (unitId: string) => {
+    try {
+      await deleteDoc(doc(db, 'units', unitId));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, `units/${unitId}`);
+    }
+  };
+
+  const addDriver = async (driver: Driver) => {
+    try {
+      await setDoc(doc(db, 'drivers', driver.id), JSON.parse(JSON.stringify(driver)));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, `drivers/${driver.id}`);
+    }
+  };
+
+  const updateDriver = async (driver: Driver) => {
+    try {
+      await setDoc(doc(db, 'drivers', driver.id), JSON.parse(JSON.stringify(driver)));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, `drivers/${driver.id}`);
+    }
+  };
+
+  const deleteDriver = async (driverId: string) => {
+    try {
+      await deleteDoc(doc(db, 'drivers', driverId));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, `drivers/${driverId}`);
+    }
+  };
+
   return (
     <CRMContext.Provider
       value={{
@@ -221,6 +297,14 @@ export const CRMProvider = ({ children }: { children: ReactNode }) => {
         addDeal,
         updateDeal,
         deleteDeal,
+        units,
+        addUnit,
+        updateUnit,
+        deleteUnit,
+        drivers,
+        addDriver,
+        updateDriver,
+        deleteDriver,
         loading,
       }}
     >

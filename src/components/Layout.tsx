@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useCRM } from '../store';
-import { LayoutDashboard, ListTodo, Users, Target as TargetIcon, Menu, X, Building2, ChevronDown, ChevronRight, User as UserIcon } from 'lucide-react';
+import { LayoutDashboard, ListTodo, Users, Target as TargetIcon, Menu, X, Building2, ChevronDown, ChevronRight, User as UserIcon, Car } from 'lucide-react';
 
 interface LayoutProps {
   children: React.ReactNode;
-  activeTab: 'dashboard' | 'pipeline' | 'clients' | 'targets';
-  setActiveTab: (tab: 'dashboard' | 'pipeline' | 'clients' | 'targets') => void;
+  activeTab: 'dashboard' | 'pipeline' | 'clients' | 'targets' | 'units' | 'drivers';
+  setActiveTab: (tab: 'dashboard' | 'pipeline' | 'clients' | 'targets' | 'units' | 'drivers') => void;
 }
 
 const RoleSelector = ({ users, currentUser, setCurrentUser }: { users: any[], currentUser: any, setCurrentUser: any }) => {
@@ -27,6 +27,7 @@ const RoleSelector = ({ users, currentUser, setCurrentUser }: { users: any[], cu
   const gms = users.filter((u) => u.role === 'GM');
   const managers = users.filter((u) => u.role === 'Manager');
   const otherSales = users.filter((u) => u.role === 'Sales' && !users.some((m) => m.id === u.managerId));
+  const pools = users.filter((u) => u.role === 'Pool');
 
   return (
     <div className="relative">
@@ -126,6 +127,22 @@ const RoleSelector = ({ users, currentUser, setCurrentUser }: { users: any[], cu
               </div>
             )}
 
+            {/* Operational Pool Section */}
+            {pools.length > 0 && (
+              <div className="border-t border-white/5 pt-2">
+                <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest text-slate-500">Operational Pool Dispatch</div>
+                {pools.map((u) => (
+                  <button
+                    key={u.id}
+                    onClick={() => handleSelect(u)}
+                    className={`w-full text-left px-4 py-2 text-sm transition-colors hover:bg-white/5 ${currentUser.id === u.id ? 'text-indigo-400 font-bold bg-indigo-500/10' : 'text-slate-300'}`}
+                  >
+                    {u.name}
+                  </button>
+                ))}
+              </div>
+            )}
+
           </div>
         </>
       )}
@@ -138,19 +155,36 @@ export default function Layout({ children, activeTab, setActiveTab }: LayoutProp
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   useEffect(() => {
-    if (currentUser.role !== 'GM' && currentUser.role !== 'Manager' && activeTab === 'targets') {
-      setActiveTab('dashboard');
+    if (currentUser.role === 'Pool') {
+      if (activeTab !== 'units' && activeTab !== 'drivers' && activeTab !== 'clients') {
+        setActiveTab('units');
+      }
+    } else {
+      if (currentUser.role !== 'GM' && currentUser.role !== 'Manager' && activeTab === 'targets') {
+        setActiveTab('dashboard');
+      }
     }
   }, [currentUser.role, activeTab, setActiveTab]);
 
-  const navItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'pipeline', label: 'Pipeline', icon: ListTodo },
-    { id: 'clients', label: 'Clients', icon: Building2 },
-  ];
+  const navItems = [];
+  if (currentUser.role === 'Pool') {
+    navItems.push(
+      { id: 'units', label: 'Fleet', icon: Car },
+      { id: 'drivers', label: 'Supir', icon: UserIcon },
+      { id: 'clients', label: 'Clients', icon: Building2 }
+    );
+  } else {
+    navItems.push(
+      { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+      { id: 'pipeline', label: 'Pipeline', icon: ListTodo },
+      { id: 'clients', label: 'Clients', icon: Building2 },
+      { id: 'units', label: 'Fleet', icon: Car },
+      { id: 'drivers', label: 'Supir', icon: UserIcon }
+    );
+  }
 
   // Only allow General Manager (GM) and Manager to configure targets
-  if (currentUser.role === 'GM' || currentUser.role === 'Manager') {
+  if ((currentUser.role === 'GM' || currentUser.role === 'Manager') && currentUser.role !== 'Pool') {
     navItems.push({ id: 'targets', label: 'Set KPI Targets', icon: TargetIcon });
   }
 
