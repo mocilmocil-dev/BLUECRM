@@ -194,7 +194,7 @@ export default function Drivers() {
         )}
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
         <div className="rounded-2xl border border-white/5 bg-white/5 p-4 backdrop-blur-md">
           <div className="text-xs font-bold text-slate-400 uppercase tracking-wider">Total Supir</div>
           <div className="text-3xl font-mono font-bold text-white mt-1">{driverStats.total}</div>

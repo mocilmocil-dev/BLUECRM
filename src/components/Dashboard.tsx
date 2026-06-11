@@ -2,10 +2,11 @@ import React, { useMemo, useState } from 'react';
 import { useCRM } from '../store';
 import { formatIDR } from '../utils';
 import { PRODUCT_CATEGORIES, ProductCategory, User } from '../types';
-import { ChevronLeft, TrendingUp, Target, Briefcase, Award, Zap } from 'lucide-react';
+import { ChevronLeft, TrendingUp, Target, Briefcase, Award, Zap, Car, BarChart3, PieChart, Users, Activity } from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart as RePieChart, Pie, Legend } from 'recharts';
 
 export default function Dashboard() {
-  const { currentUser, deals, targets, users } = useCRM();
+  const { currentUser, deals, targets, users, units } = useCRM();
 
   // Calculations Helper
   const calculateMetrics = (salesIds: string[]) => {
@@ -147,6 +148,94 @@ export default function Dashboard() {
     return 'bg-slate-800 text-slate-400 border-white/5';
   };
 
+  const fleetMetrics = useMemo(() => {
+    if (!units || units.length === 0) return { total: 0, active: 0, utilization: 0 };
+    const active = units.filter(u => u.status === 'Rent Out').length;
+    const utilization = (active / units.length) * 100;
+    return { total: units.length, active, utilization };
+  }, [units]);
+
+  const productChartData = useMemo(() => {
+    return PRODUCT_CATEGORIES.map(cat => ({
+      name: cat,
+      target: metrics.productMetrics[cat].target,
+      actual: metrics.productMetrics[cat].actual,
+      progress: metrics.productMetrics[cat].target > 0 
+                ? (metrics.productMetrics[cat].actual / metrics.productMetrics[cat].target) * 100 
+                : 0
+    }));
+  }, [metrics]);
+
+  const pipelineChartData = useMemo(() => {
+    let prospecting = 0, negotiation = 0;
+    deals.forEach(d => {
+      if (visibleSalesIds.includes(d.salesId)) {
+        if (d.stage === 'Prospecting') prospecting++;
+        if (d.stage === 'Negotiation') negotiation++;
+      }
+    });
+    return [
+      { name: 'Prospecting', value: prospecting, color: '#3b82f6' }, // blue
+      { name: 'Negotiation', value: negotiation, color: '#f59e0b' }, // amber
+      { name: 'Won', value: metrics.totalActual > 0 ? deals.filter(d => visibleSalesIds.includes(d.salesId) && d.stage === 'Won').length : 0, color: '#10b981' }, // emerald
+      { name: 'Lost', value: deals.filter(d => visibleSalesIds.includes(d.salesId) && d.stage === 'Lost').length, color: '#ef4444' }, // red
+    ].filter(d => d.value > 0);
+  }, [deals, visibleSalesIds, metrics.totalActual]);
+
+  const salesPerformanceData = useMemo(() => {
+    const performance: Record<string, { name: string, totalWon: number }> = {};
+    users.filter(u => u.role === 'Sales').forEach(user => {
+      performance[user.id] = { name: user.name, totalWon: 0 };
+    });
+    
+    deals.forEach(deal => {
+      if (deal.stage === 'Won' && performance[deal.salesId]) {
+        performance[deal.salesId].totalWon += (deal.actualValue || deal.estimatedValue || 0);
+      }
+    });
+    
+    return Object.values(performance)
+      .filter(p => p.totalWon > 0)
+      .sort((a, b) => b.totalWon - a.totalWon)
+      .slice(0, 5);
+  }, [deals, users]);
+
+  const fleetStatusData = useMemo(() => {
+    const statuses = { 'Available': 0, 'Rent Out': 0, 'In Maintenance': 0 };
+    let hasData = false;
+    units.forEach(unit => {
+        if (statuses[unit.status as keyof typeof statuses] !== undefined) {
+             statuses[unit.status as keyof typeof statuses]++;
+             hasData = true;
+        }
+    });
+    
+    if (!hasData) return [];
+    
+    return [
+      { name: 'Available', value: statuses['Available'], color: '#10b981' }, // emerald
+      { name: 'Rent Out', value: statuses['Rent Out'], color: '#3b82f6' }, // blue
+      { name: 'In Maintenance', value: statuses['In Maintenance'], color: '#f59e0b' }, // amber
+    ];
+  }, [units]);
+
+  const CustomTooltip = ({ active, payload, label }: any) => {
+    if (active && payload && payload.length) {
+      return (
+        <div className="bg-[#161d2e]/95 backdrop-blur-md border border-white/10 p-3 rounded-xl shadow-xl">
+          <p className="text-white font-bold mb-2">{label}</p>
+          {payload.map((entry: any, index: number) => (
+            <div key={index} className="flex gap-4 items-center">
+              <span style={{ color: entry.color }} className="text-sm">{entry.name}:</span>
+              <span className="text-white font-mono font-bold text-sm">{formatIDR(entry.value)}</span>
+            </div>
+          ))}
+        </div>
+      );
+    }
+    return null;
+  };
+
   return (
     <div className="space-y-8 flex flex-col h-full overflow-y-auto pb-8">
       <div className="shrink-0">
@@ -157,18 +246,7 @@ export default function Dashboard() {
       </div>
 
       {/* KPI Highlight Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-gradient-to-br from-indigo-500/10 to-indigo-600/5 rounded-2xl border border-indigo-500/20 p-5 flex items-center justify-between">
-          <div>
-            <p className="text-xs font-bold text-indigo-300 uppercase tracking-widest mb-1">Active Pipeline</p>
-            <p className="text-2xl font-mono font-bold text-white">{formatIDR(metrics.activePipelineValue)}</p>
-            <p className="text-xs text-indigo-200 mt-1">{metrics.activeDealsCount} deals currently active</p>
-          </div>
-          <div className="h-12 w-12 rounded-xl bg-indigo-500/20 flex items-center justify-center shrink-0">
-            <Briefcase className="h-6 w-6 text-indigo-400" />
-          </div>
-        </div>
-
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-gradient-to-br from-emerald-500/10 to-emerald-600/5 rounded-2xl border border-emerald-500/20 p-5 flex items-center justify-between">
           <div>
             <p className="text-xs font-bold text-emerald-300 uppercase tracking-widest mb-1">Total Revenue Won</p>
@@ -180,6 +258,17 @@ export default function Dashboard() {
           </div>
         </div>
 
+        <div className="bg-gradient-to-br from-indigo-500/10 to-indigo-600/5 rounded-2xl border border-indigo-500/20 p-5 flex items-center justify-between">
+          <div>
+            <p className="text-xs font-bold text-indigo-300 uppercase tracking-widest mb-1">Active Pipeline</p>
+            <p className="text-2xl font-mono font-bold text-white">{formatIDR(metrics.activePipelineValue)}</p>
+            <p className="text-xs text-indigo-200 mt-1">{metrics.activeDealsCount} deals currently active</p>
+          </div>
+          <div className="h-12 w-12 rounded-xl bg-indigo-500/20 flex items-center justify-center shrink-0">
+            <Briefcase className="h-6 w-6 text-indigo-400" />
+          </div>
+        </div>
+
         <div className="bg-gradient-to-br from-amber-500/10 to-amber-600/5 rounded-2xl border border-amber-500/20 p-5 flex items-center justify-between">
           <div>
             <p className="text-xs font-bold text-amber-300 uppercase tracking-widest mb-1">Win Rate</p>
@@ -188,6 +277,17 @@ export default function Dashboard() {
           </div>
           <div className="h-12 w-12 rounded-xl bg-amber-500/20 flex items-center justify-center shrink-0">
             <Award className="h-6 w-6 text-amber-400" />
+          </div>
+        </div>
+
+        <div className="bg-gradient-to-br from-blue-500/10 to-blue-600/5 rounded-2xl border border-blue-500/20 p-5 flex items-center justify-between">
+          <div>
+            <p className="text-xs font-bold text-blue-300 uppercase tracking-widest mb-1">Fleet Utilization</p>
+            <p className="text-2xl font-mono font-bold text-white">{fleetMetrics.utilization.toFixed(1)}%</p>
+            <p className="text-xs text-blue-200 mt-1">{fleetMetrics.active} of {fleetMetrics.total} units rented out</p>
+          </div>
+          <div className="h-12 w-12 rounded-xl bg-blue-500/20 flex items-center justify-center shrink-0">
+            <Car className="h-6 w-6 text-blue-400" />
           </div>
         </div>
       </div>
@@ -387,7 +487,161 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
-{/* To resolve CSS build errors, we'll add custom-scrollbar manually directly via CSS later or inline style if needed, but Tailwind's bare minimum is fine. */}
+
+      {/* Advanced Analytics - Charts */}
+      {(currentUser.role === 'GM' || currentUser.role === 'Manager') && (
+        <div className="flex flex-col gap-6 mt-8">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Revenue by Product Chart */}
+            <div className="rounded-3xl border border-white/10 bg-[#161d2e] p-6 shadow-xl relative overflow-hidden">
+               <div className="absolute top-0 right-0 w-48 h-48 bg-indigo-500/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
+               <div className="relative z-10 flex flex-col h-full">
+                 <div className="flex items-center gap-2 mb-6">
+                   <BarChart3 className="w-5 h-5 text-indigo-400" />
+                   <h3 className="font-bold text-white text-lg">Revenue vs Target by Category</h3>
+                 </div>
+                 
+                 <div className="h-64 w-full">
+                   <ResponsiveContainer width="100%" height="100%">
+                     <BarChart data={productChartData} margin={{ top: 10, right: 10, left: 10, bottom: 20 }}>
+                       <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                       <XAxis 
+                         dataKey="name" 
+                         axisLine={false} 
+                         tickLine={false} 
+                         tick={{ fill: '#94a3b8', fontSize: 12 }}
+                         dy={10}
+                       />
+                       <YAxis 
+                         hide 
+                       />
+                       <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(255,255,255,0.02)' }} />
+                       <Legend wrapperStyle={{ paddingTop: '20px', fontSize: '12px' }} />
+                       <Bar dataKey="target" name="Target" fill="#334155" radius={[4, 4, 0, 0]} />
+                       <Bar dataKey="actual" name="Actual" fill="#6366f1" radius={[4, 4, 0, 0]} />
+                     </BarChart>
+                   </ResponsiveContainer>
+                 </div>
+               </div>
+            </div>
+
+            {/* Pipeline Stage Distribution */}
+            <div className="rounded-3xl border border-white/10 bg-[#161d2e] p-6 shadow-xl relative overflow-hidden">
+               <div className="absolute top-0 left-0 w-48 h-48 bg-emerald-500/5 rounded-full blur-3xl -translate-y-1/2 -translate-x-1/2"></div>
+               <div className="relative z-10 flex flex-col h-full">
+                 <div className="flex items-center gap-2 mb-6">
+                   <PieChart className="w-5 h-5 text-emerald-400" />
+                   <h3 className="font-bold text-white text-lg">Pipeline Distribution (Volume)</h3>
+                 </div>
+                 
+                 <div className="h-64 w-full flex items-center justify-center">
+                   {pipelineChartData.length > 0 ? (
+                     <ResponsiveContainer width="100%" height="100%">
+                       <RePieChart>
+                         <Pie
+                           data={pipelineChartData}
+                           cx="50%"
+                           cy="50%"
+                           innerRadius={60}
+                           outerRadius={80}
+                           paddingAngle={5}
+                           dataKey="value"
+                           stroke="none"
+                         >
+                           {pipelineChartData.map((entry, index) => (
+                             <Cell key={`cell-${index}`} fill={entry.color} />
+                           ))}
+                         </Pie>
+                         <Tooltip content={<CustomTooltip />} />
+                         <Legend wrapperStyle={{ fontSize: '12px' }} />
+                       </RePieChart>
+                     </ResponsiveContainer>
+                   ) : (
+                     <div className="text-slate-500 text-sm">No active pipeline data available</div>
+                   )}
+                 </div>
+               </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Sales Performance Leaderboard */}
+            <div className="rounded-3xl border border-white/10 bg-[#161d2e] p-6 shadow-xl relative overflow-hidden">
+               <div className="absolute bottom-0 right-0 w-48 h-48 bg-amber-500/5 rounded-full blur-3xl translate-y-1/2 translate-x-1/2"></div>
+               <div className="relative z-10 flex flex-col h-full">
+                 <div className="flex items-center gap-2 mb-6">
+                   <Users className="w-5 h-5 text-amber-400" />
+                   <h3 className="font-bold text-white text-lg">Top Sales Performance (Won Deals)</h3>
+                 </div>
+                 
+                 <div className="h-64 w-full">
+                   {salesPerformanceData.length > 0 ? (
+                     <ResponsiveContainer width="100%" height="100%">
+                       <BarChart layout="vertical" data={salesPerformanceData} margin={{ top: 10, right: 30, left: 40, bottom: 0 }}>
+                         <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" horizontal={false} />
+                         <XAxis 
+                           type="number" 
+                           hide
+                         />
+                         <YAxis 
+                           type="category" 
+                           dataKey="name"
+                           axisLine={false} 
+                           tickLine={false} 
+                           tick={{ fill: '#94a3b8', fontSize: 12 }}
+                           width={80}
+                         />
+                         <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(255,255,255,0.02)' }} />
+                         <Bar dataKey="totalWon" name="Total Revenue Won" fill="#f59e0b" radius={[0, 4, 4, 0]} />
+                       </BarChart>
+                     </ResponsiveContainer>
+                   ) : (
+                     <div className="h-full flex items-center justify-center text-slate-500 text-sm">No sales data recorded yet</div>
+                   )}
+                 </div>
+               </div>
+            </div>
+
+            {/* Fleet Status Breakdown */}
+            <div className="rounded-3xl border border-white/10 bg-[#161d2e] p-6 shadow-xl relative overflow-hidden">
+               <div className="absolute top-0 right-0 w-48 h-48 bg-blue-500/5 rounded-full blur-3xl -translate-y-1/2 -translate-x-1/2"></div>
+               <div className="relative z-10 flex flex-col h-full">
+                 <div className="flex items-center gap-2 mb-6">
+                   <Activity className="w-5 h-5 text-blue-400" />
+                   <h3 className="font-bold text-white text-lg">Overall Fleet Status</h3>
+                 </div>
+                 
+                 <div className="h-64 w-full flex items-center justify-center">
+                   {fleetStatusData.length > 0 ? (
+                     <ResponsiveContainer width="100%" height="100%">
+                       <RePieChart>
+                         <Pie
+                           data={fleetStatusData}
+                           cx="50%"
+                           cy="50%"
+                           innerRadius={0}
+                           outerRadius={85}
+                           dataKey="value"
+                           stroke="none"
+                         >
+                           {fleetStatusData.map((entry, index) => (
+                             <Cell key={`cell-${index}`} fill={entry.color} />
+                           ))}
+                         </Pie>
+                         <Tooltip content={<CustomTooltip />} />
+                         <Legend wrapperStyle={{ fontSize: '12px' }} />
+                       </RePieChart>
+                     </ResponsiveContainer>
+                   ) : (
+                     <div className="text-slate-500 text-sm">No fleet registered</div>
+                   )}
+                 </div>
+               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <style>{`
         .custom-scrollbar::-webkit-scrollbar { width: 4px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
