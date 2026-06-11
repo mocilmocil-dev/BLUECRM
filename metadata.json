@@ -1,5 +1,5 @@
 {
-  "name": "artha-crm",
+  "name": "bluecrm",
   "description": "Sales Performance Monitoring and Custom CRM",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]

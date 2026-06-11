@@ -1,20 +1,41 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
-</div>
+# BLUECRM 🚗
 
-# Run and deploy your AI Studio app
+BLUECRM is a comprehensive, centralized Customer Relationship Management (CRM) platform specifically built to manage vehicle rental, leasing, and fleet operations. It streamlines workflows between Sales, Managers, and General Managers (GM) by tracking deals, fleet units, drivers, and revenue targets in real-time.
 
-This contains everything you need to run your app locally.
+---
 
-View your app in AI Studio: https://ai.studio/apps/88f71936-5af0-473e-a884-29746791a400
+## Features at a Glance
 
-## Run Locally
+- **Pipeline Management:** Track deals across different stages (Prospecting, Negotiation, Won, Lost) with robust searching and sorting.
+- **Client Management:** Manage company profiles, unlimited Points of Contact (PIC), and view their real-time active pipelines.
+- **Unit & Fleet Management:** Track vehicle inventories, locations, operational statuses, and manage fulfillment assignments for Won deals.
+- **Driver Management:** Track driver availability, pool locations, and assign them directly to active company contracts.
+- **Target Tracking:** Set and monitor sales quotas, and view actual performance against designated targets.
+- **Role-Based Access Control (RBAC):** Differentiated views and capabilities specifically tuned for Sales, Pool, Manager, and GM roles.
 
-**Prerequisites:**  Node.js
+## Tech Stack Overview
 
+- **Frontend:** React 18 + TypeScript
+- **Bundler:** Vite
+- **Styling:** Tailwind CSS
+- **Icons:** Lucide React
+- **Database:** Firebase Cloud Firestore (NoSQL)
+- **Auth:** Firebase Authentication
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+## Setup Instructions
+
+1. Ensure you have Node.js installed.
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
+3. Set up environment variables:
+   Copy `.env.example` to `.env` and fill in your Firebase project configuration credentials.
+4. Start the development server:
+   ```bash
+   npm run dev
+   ```
+5. To build for production, run:
+   ```bash
+   npm run build
+   ```
