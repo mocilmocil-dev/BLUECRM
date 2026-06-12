@@ -1,7 +1,7 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useCRM } from '../store';
 import { Unit, UnitStatus, Deal } from '../types';
-import { Car, Plus, Search, MapPin, Wrench, Shield, CheckCircle, Tag, AlertTriangle, FileText, X, Check, ArrowRight, Settings } from 'lucide-react';
+import { Car, Plus, Search, MapPin, Wrench, Shield, CheckCircle, Tag, AlertTriangle, FileText, X, Check, ArrowRight, Settings, LayoutGrid, List, ChevronLeft, ChevronRight } from 'lucide-react';
 
 export default function Units() {
   const { currentUser, units, addUnit, updateUnit, deals, companies } = useCRM();
@@ -10,6 +10,11 @@ export default function Units() {
   const [searchTerm, setSearchTerm] = useState('');
   const [locationFilter, setLocationFilter] = useState<'All' | 'Jakarta' | 'Surabaya'>('All');
   const [statusFilter, setStatusFilter] = useState<'All' | UnitStatus | 'In Queue' | 'Being Serviced'>('All');
+
+  // View mode and pagination states
+  const [viewMode, setViewMode] = useState<'Grid' | 'Table'>('Table');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(25);
 
   // Form modals state
   const [isAddOpen, setIsAddOpen] = useState(false);
@@ -93,6 +98,19 @@ export default function Units() {
       return matchesSearch && matchesLocation && matchesStatus;
     });
   }, [units, searchTerm, locationFilter, statusFilter]);
+
+  // Reset pagination on filter changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, locationFilter, statusFilter]);
+
+  const totalFiltered = filteredUnits.length;
+  const totalPages = Math.ceil(totalFiltered / itemsPerPage) || 1;
+
+  const paginatedUnits = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return filteredUnits.slice(start, start + itemsPerPage);
+  }, [filteredUnits, currentPage, itemsPerPage]);
 
   // Stats calculation
   const stats = useMemo(() => {
@@ -443,16 +461,63 @@ export default function Units() {
         </div>
       </div>
 
+      {/* Grid vs Table Layout Selection + Pagination Stats Controls row */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white/5 border border-white/5 rounded-2xl p-4 backdrop-blur-md">
+        <div className="flex items-center gap-2 select-none">
+          <span className="text-xs text-slate-400 font-bold uppercase tracking-wider">Layout View:</span>
+          <div className="inline-flex rounded-xl p-0.5 bg-slate-950/80 border border-white/5">
+            <button
+              onClick={() => setViewMode('Table')}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${viewMode === 'Table' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-white'}`}
+            >
+              <List className="h-3.5 w-3.5" />
+              Compact List
+            </button>
+            <button
+              onClick={() => setViewMode('Grid')}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${viewMode === 'Grid' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-white'}`}
+            >
+              <LayoutGrid className="h-3.5 w-3.5" />
+              Detailed Grid
+            </button>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-4">
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-slate-400 font-bold uppercase tracking-wider font-bold text-[10px]">Per Page:</span>
+            <select
+              value={itemsPerPage}
+              onChange={(e) => {
+                setItemsPerPage(Number(e.target.value));
+                setCurrentPage(1);
+              }}
+              className="bg-[#111827]/60 border border-white/5 rounded-xl px-2.5 py-1 text-xs text-slate-300 focus:outline-none focus:border-indigo-500"
+            >
+              <option value="10">10</option>
+              <option value="25">25</option>
+              <option value="50">50</option>
+              <option value="100">100</option>
+            </select>
+          </div>
+          {totalFiltered > 0 && (
+            <span className="text-xs text-slate-400 font-medium">
+              Showing <strong className="text-white font-mono">{Math.min(totalFiltered, (currentPage - 1) * itemsPerPage + 1)}</strong> to <strong className="text-white font-mono">{Math.min(totalFiltered, currentPage * itemsPerPage)}</strong> of <strong className="text-white font-mono">{totalFiltered}</strong> units
+            </span>
+          )}
+        </div>
+      </div>
+
       {/* Vehicles Grid / Table */}
-      {filteredUnits.length === 0 ? (
-            <div className="text-center py-16 bg-white/5 border border-white/5 rounded-3xl backdrop-blur-md">
-              <Car className="mx-auto h-12 w-12 text-slate-500 mb-3" />
-              <h3 className="text-lg font-bold text-white mb-1">No Vehicles Found</h3>
-              <p className="text-sm text-slate-400">Try adjusting your filters or search criteria.</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredUnits.map((u) => {
+      {totalFiltered === 0 ? (
+        <div className="text-center py-16 bg-white/5 border border-white/5 rounded-3xl backdrop-blur-md">
+          <Car className="mx-auto h-12 w-12 text-slate-500 mb-3" />
+          <h3 className="text-lg font-bold text-white mb-1">No Vehicles Found</h3>
+          <p className="text-sm text-slate-400">Try adjusting your filters or search criteria.</p>
+        </div>
+      ) : viewMode === 'Grid' ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {paginatedUnits.map((u) => {
             const hasDeal = getDealDetails(u.assignedDealId);
             return (
               <div
@@ -578,7 +643,152 @@ export default function Units() {
             );
           })}
         </div>
+      ) : (
+        <div className="overflow-x-auto rounded-3xl border border-white/5 bg-slate-900/10 backdrop-blur-md">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="border-b border-white/5 bg-slate-900/50 text-xs font-bold text-slate-400 uppercase tracking-widest select-none">
+                <th className="p-4 pl-6">Nopol / Plate</th>
+                <th className="p-4">Car Model</th>
+                <th className="p-4">Status</th>
+                <th className="p-4">Location</th>
+                <th className="p-4">Active Contract</th>
+                <th className="p-4">Odo & Fuel</th>
+                <th className="p-4">Docs Expiry</th>
+                {canModify && <th className="p-4 pr-6 text-center">Actions</th>}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-white/5">
+              {paginatedUnits.map((u) => {
+                const hasDeal = getDealDetails(u.assignedDealId);
+                return (
+                  <tr key={u.id} className="hover:bg-white/5 transition-colors text-sm">
+                    {/* Plate */}
+                    <td className="p-4 pl-6 whitespace-nowrap">
+                      <div className="inline-flex flex-col items-center border border-slate-700 bg-slate-950 text-white font-mono px-2.5 py-1 rounded shadow-md select-none border-t-2 border-t-indigo-500 text-xs">
+                        <span className="font-bold tracking-wider">{u.plateNumber}</span>
+                        <div className="w-full h-px bg-slate-800 my-0.5"></div>
+                        <span className="text-[7px] tracking-widest text-slate-400">06.31</span>
+                      </div>
+                    </td>
+
+                    {/* Model */}
+                    <td className="p-4">
+                      <div className="font-bold text-white tracking-tight">{u.model}</div>
+                      {u.manufactureYear && <span className="text-xs text-slate-400">{u.manufactureYear} • {u.color || 'No Color'}</span>}
+                    </td>
+
+                    {/* Status */}
+                    <td className="p-4 whitespace-nowrap">
+                      <div className="flex flex-col gap-1 items-start">
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-black border uppercase tracking-wider ${statusColors[u.status]}`}>
+                          {u.status}
+                        </span>
+                        {u.status === 'Maintenance' && u.maintenanceStatus && (
+                          <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[8.5px] font-bold border ${u.maintenanceStatus === 'Being Serviced' ? 'bg-rose-500/10 text-rose-400 border-rose-500/20' : 'bg-orange-500/10 text-orange-400 border-orange-500/20'}`}>
+                            {u.maintenanceStatus}
+                          </span>
+                        )}
+                      </div>
+                    </td>
+
+                    {/* Location */}
+                    <td className="p-4 whitespace-nowrap text-slate-300">
+                      <span className="inline-flex items-center gap-1.5 font-medium">
+                        <MapPin className="h-3.5 w-3.5 text-red-400 shrink-0" />
+                        {u.location} Pool
+                      </span>
+                    </td>
+
+                    {/* Contract */}
+                    <td className="p-4 max-w-xs">
+                      {hasDeal ? (
+                        <div className="text-xs">
+                          <div className="font-bold text-white truncate">{hasDeal.companyName}</div>
+                          <div className="text-slate-400 truncate mt-0.5" title={hasDeal.dealTitle}>
+                            {hasDeal.dealTitle}
+                          </div>
+                        </div>
+                      ) : (
+                        <span className="text-slate-600 italic text-xs">Available</span>
+                      )}
+                    </td>
+
+                    {/* Odometer & Fuel */}
+                    <td className="p-4 whitespace-nowrap text-xs text-slate-300">
+                      <div className="flex flex-col gap-0.5 font-mono">
+                        <div><span className="text-slate-500 font-sans">Odo:</span> {u.lastOdometer?.toLocaleString() || 0} km</div>
+                        <div><span className="text-slate-500 font-sans">Fuel:</span> {u.fuelLevel ?? 100}%</div>
+                      </div>
+                    </td>
+
+                    {/* Expiry */}
+                    <td className="p-4 whitespace-nowrap text-xs text-slate-400">
+                      <div className="flex flex-col gap-0.5">
+                        {u.taxExpiryDate && <div><span className="text-slate-500">Tax:</span> {u.taxExpiryDate}</div>}
+                        {u.stnkExpiryDate && <div><span className="text-slate-500">STNK:</span> {u.stnkExpiryDate}</div>}
+                      </div>
+                    </td>
+
+                    {/* Actions */}
+                    {canModify && currentUser.name.includes(u.location) && (
+                      <td className="p-4 pr-6 whitespace-nowrap text-center">
+                        <div className="flex gap-2 justify-center">
+                          <button
+                            onClick={() => openEditStatus(u)}
+                            className="inline-flex items-center justify-center gap-1 rounded-xl border border-white/10 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 px-3 py-1.5 text-xs font-semibold transition-all"
+                            title="Update Status"
+                          >
+                            <Wrench className="h-3.5 w-3.5" />
+                            Status
+                          </button>
+                          <button
+                            onClick={() => openEditDetails(u)}
+                            className="inline-flex items-center justify-center gap-1 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 px-3 py-1.5 text-xs font-semibold text-white transition-all"
+                            title="Edit Specifications"
+                          >
+                            <Settings className="h-3.5 w-3.5 text-slate-400" />
+                            Spec
+                          </button>
+                        </div>
+                      </td>
+                    )}
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       )}
+
+      {/* Pagination Controls */}
+      {totalPages > 1 && (
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-4 bg-white/5 border border-white/5 rounded-2xl p-4 select-none">
+          <span className="text-xs text-slate-400 font-medium font-semibold">
+            Page <strong className="text-white font-mono">{currentPage}</strong> of <strong className="text-white font-mono">{totalPages}</strong> ({totalFiltered} units match filters)
+          </span>
+          
+          <div className="inline-flex gap-2">
+            <button
+              disabled={currentPage === 1}
+              onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-[#161d2e] hover:bg-white/10 px-3.5 py-2 text-xs font-bold text-white transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <ChevronLeft className="h-4 w-4" />
+              Previous
+            </button>
+            <button
+              disabled={currentPage === totalPages}
+              onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-[#161d2e] hover:bg-white/10 px-3.5 py-2 text-xs font-bold text-white transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              Next
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
 
       {/* Floating alert/guide for Pool reps */}
       {currentUser.role === 'Pool' && (
