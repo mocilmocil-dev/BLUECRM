@@ -36,9 +36,8 @@ export default function Drivers() {
   const pendingDriverFulfillmentDeals = useMemo(() => {
     return deals.filter(d => {
       if (d.stage !== 'Won' && d.stage !== 'Negotiation') return false;
-      const supirItem = d.products?.find(p => p.category === 'Supir');
-      if (!supirItem) return false;
-      const reqQty = supirItem.quantity || 1;
+      const reqQty = d.products?.filter(p => p.category === 'Supir').reduce((sum, p) => sum + (p.quantity || 1), 0) || 0;
+      if (reqQty === 0) return false;
       const assignedDrivers = drivers.filter(dr => dr.assignedDealId === d.id).length;
       return assignedDrivers < reqQty;
     });
@@ -231,8 +230,7 @@ export default function Drivers() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {pendingDriverFulfillmentDeals.map(d => {
               const comp = companies.find(c => c.id === d.companyId);
-              const supirItem = d.products?.find(p => p.category === 'Supir');
-              const reqQty = supirItem ? (supirItem.quantity || 1) : 0;
+              const reqQty = d.products?.filter(p => p.category === 'Supir').reduce((sum, p) => sum + (p.quantity || 1), 0) || 0;
               const assignedDrivers = drivers.filter(dr => dr.assignedDealId === d.id).length;
               return (
                 <div key={d.id} className="rounded-2xl border border-emerald-500/20 bg-[#161d2e] p-4 flex items-center justify-between">
@@ -586,8 +584,7 @@ export default function Drivers() {
 
             {(() => {
               const comp = companies.find(c => c.id === driverFulfillmentDeal.companyId);
-              const supirItem = driverFulfillmentDeal.products?.find(p => p.category === 'Supir');
-              const reqQty = supirItem ? (supirItem.quantity || 1) : 0;
+              const reqQty = driverFulfillmentDeal.products?.filter(p => p.category === 'Supir').reduce((sum, p) => sum + (p.quantity || 1), 0) || 0;
               const currentlySelectedCount = fulfillmentSelectedDriverIds.length;
               
               const availableDriversToPick = drivers.filter(d => 

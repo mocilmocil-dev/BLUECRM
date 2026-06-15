@@ -682,8 +682,7 @@ export default function Pipeline() {
 
               {(() => {
                 const isEligibleStage = (modalMode === 'create' || modalMode === 'edit-stage') && (targetStage === 'Negotiation' || targetStage === 'Won');
-                const longTermItem = editingDeal?.products?.find(p => p.category === 'Mobil Long Term');
-                const reqQty = longTermItem ? (longTermItem.quantity || 1) : 0;
+                const reqQty = editingDeal?.products?.filter(p => p.category === 'Mobil Long Term').reduce((sum, p) => sum + (p.quantity || 1), 0) || 0;
                 
                 if (isEligibleStage && reqQty > 0) {
                   const statusDesc = targetStage === 'Won' ? 'Booked' : 'Hold';
@@ -761,8 +760,7 @@ export default function Pipeline() {
 
               {(() => {
                 const isEligibleStage = (modalMode === 'create' || modalMode === 'edit-stage') && (targetStage === 'Negotiation' || targetStage === 'Won');
-                const supirItem = editingDeal?.products?.find(p => p.category === 'Supir');
-                const reqQty = supirItem ? (supirItem.quantity || 1) : 0;
+                const reqQty = editingDeal?.products?.filter(p => p.category === 'Supir').reduce((sum, p) => sum + (p.quantity || 1), 0) || 0;
                 
                 if (isEligibleStage && reqQty > 0) {
                   const statusDesc = targetStage === 'Won' ? 'Assigned' : 'Reserved';
