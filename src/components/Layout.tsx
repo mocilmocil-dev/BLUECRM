@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useCRM } from '../store';
-import { LayoutDashboard, ListTodo, Users, Target as TargetIcon, Menu, X, Building2, ChevronDown, ChevronRight, User as UserIcon, Car } from 'lucide-react';
+import { LayoutDashboard, ListTodo, Users, Target as TargetIcon, Menu, X, Building2, ChevronDown, ChevronRight, User as UserIcon, Car, BarChart3 } from 'lucide-react';
 
 interface LayoutProps {
   children: React.ReactNode;
-  activeTab: 'dashboard' | 'pipeline' | 'clients' | 'targets' | 'units' | 'drivers';
-  setActiveTab: (tab: 'dashboard' | 'pipeline' | 'clients' | 'targets' | 'units' | 'drivers') => void;
+  activeTab: 'dashboard' | 'pipeline' | 'clients' | 'targets' | 'units' | 'drivers' | 'sales-performance';
+  setActiveTab: (tab: 'dashboard' | 'pipeline' | 'clients' | 'targets' | 'units' | 'drivers' | 'sales-performance') => void;
 }
 
 const RoleSelector = ({ users, currentUser, setCurrentUser }: { users: any[], currentUser: any, setCurrentUser: any }) => {
@@ -176,6 +176,7 @@ export default function Layout({ children, activeTab, setActiveTab }: LayoutProp
   } else {
     navItems.push(
       { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+      { id: 'sales-performance', label: 'Sales Performance', icon: BarChart3 },
       { id: 'pipeline', label: 'Pipeline', icon: ListTodo },
       { id: 'clients', label: 'Clients', icon: Building2 },
       { id: 'units', label: 'Fleet', icon: Car },

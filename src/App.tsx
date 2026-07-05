@@ -7,9 +7,10 @@ import Clients from './components/Clients';
 import Targets from './components/Targets';
 import Units from './components/Units';
 import Drivers from './components/Drivers';
+import SalesPerformance from './components/SalesPerformance';
 
 function AppContent() {
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'pipeline' | 'clients' | 'targets' | 'units' | 'drivers'>('units');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'pipeline' | 'clients' | 'targets' | 'units' | 'drivers' | 'sales-performance'>('dashboard');
 
   return (
     <Layout activeTab={activeTab} setActiveTab={setActiveTab as any}>
@@ -19,6 +20,7 @@ function AppContent() {
       {activeTab === 'targets' && <Targets />}
       {activeTab === 'units' && <Units />}
       {activeTab === 'drivers' && <Drivers />}
+      {activeTab === 'sales-performance' && <SalesPerformance />}
     </Layout>
   );
 }

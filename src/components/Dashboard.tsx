@@ -6,7 +6,7 @@ import { ChevronLeft, TrendingUp, Target, Briefcase, Award, Zap, Car, BarChart3,
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart as RePieChart, Pie, Legend } from 'recharts';
 
 export default function Dashboard() {
-  const { currentUser, deals, targets, users, units } = useCRM();
+  const { currentUser, deals, targets, users, units, drivers } = useCRM();
 
   // Calculations Helper
   const calculateMetrics = (salesIds: string[]) => {
@@ -155,6 +155,19 @@ export default function Dashboard() {
     return { total: units.length, active, utilization };
   }, [units]);
 
+  const driverMetrics = useMemo(() => {
+    if (!drivers || drivers.length === 0) return { total: 0, active: 0, utilization: 0 };
+    const active = drivers.filter(d => d.status === 'Assigned').length;
+    const utilization = (active / drivers.length) * 100;
+    return { total: drivers.length, active, utilization };
+  }, [drivers]);
+
+  const futureRevenueForecast = useMemo(() => {
+    return deals
+      .filter(d => visibleSalesIds.includes(d.salesId) && d.stage === 'Negotiation')
+      .reduce((sum, deal) => sum + (deal.estimatedValue || 0), 0);
+  }, [deals, visibleSalesIds]);
+
   const productChartData = useMemo(() => {
     return PRODUCT_CATEGORIES.map(cat => ({
       name: cat,
@@ -219,7 +232,7 @@ export default function Dashboard() {
     ];
   }, [units]);
 
-  const CustomTooltip = ({ active, payload, label }: any) => {
+  const CurrencyTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
       return (
         <div className="bg-[#161d2e]/95 backdrop-blur-md border border-white/10 p-3 rounded-xl shadow-xl">
@@ -228,6 +241,48 @@ export default function Dashboard() {
             <div key={index} className="flex gap-4 items-center">
               <span style={{ color: entry.color }} className="text-sm">{entry.name}:</span>
               <span className="text-white font-mono font-bold text-sm">{formatIDR(entry.value)}</span>
+            </div>
+          ))}
+        </div>
+      );
+    }
+    return null;
+  };
+
+  const TargetActualTooltip = ({ active, payload, label }: any) => {
+    if (active && payload && payload.length) {
+      const actual = payload.find((p: any) => p.dataKey === 'actual')?.value || 0;
+      const target = payload.find((p: any) => p.dataKey === 'target')?.value || 0;
+      const progress = target > 0 ? ((actual / target) * 100).toFixed(1) : 0;
+      
+      return (
+        <div className="bg-[#161d2e]/95 backdrop-blur-md border border-white/10 p-3 rounded-xl shadow-xl">
+          <p className="text-white font-bold mb-2">{label}</p>
+          {payload.map((entry: any, index: number) => (
+            <div key={index} className="flex justify-between gap-4 items-center mb-1">
+              <span style={{ color: entry.color }} className="text-sm">{entry.name}:</span>
+              <span className="text-white font-mono font-bold text-sm">{formatIDR(entry.value)}</span>
+            </div>
+          ))}
+          <div className="mt-2 pt-2 border-t border-white/10 flex justify-between gap-4 items-center">
+             <span className="text-sm text-slate-400">Achievement:</span>
+             <span className="text-indigo-400 font-mono font-bold text-sm">{progress}%</span>
+          </div>
+        </div>
+      );
+    }
+    return null;
+  };
+
+  const VolumeTooltip = ({ active, payload, label }: any) => {
+    if (active && payload && payload.length) {
+      return (
+        <div className="bg-[#161d2e]/95 backdrop-blur-md border border-white/10 p-3 rounded-xl shadow-xl">
+          <p className="text-white font-bold mb-2">{label}</p>
+          {payload.map((entry: any, index: number) => (
+            <div key={index} className="flex gap-4 items-center">
+              <span style={{ color: entry.color }} className="text-sm">{entry.name}:</span>
+              <span className="text-white font-mono font-bold text-sm">{(entry.value)} Units</span>
             </div>
           ))}
         </div>
@@ -246,7 +301,7 @@ export default function Dashboard() {
       </div>
 
       {/* KPI Highlight Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         <div className="bg-gradient-to-br from-emerald-500/10 to-emerald-600/5 rounded-2xl border border-emerald-500/20 p-5 flex items-center justify-between">
           <div>
             <p className="text-xs font-bold text-emerald-300 uppercase tracking-widest mb-1">Total Revenue Won</p>
@@ -266,6 +321,17 @@ export default function Dashboard() {
           </div>
           <div className="h-12 w-12 rounded-xl bg-indigo-500/20 flex items-center justify-center shrink-0">
             <Briefcase className="h-6 w-6 text-indigo-400" />
+          </div>
+        </div>
+        
+        <div className="bg-gradient-to-br from-fuchsia-500/10 to-fuchsia-600/5 rounded-2xl border border-fuchsia-500/20 p-5 flex items-center justify-between">
+          <div>
+            <p className="text-xs font-bold text-fuchsia-300 uppercase tracking-widest mb-1">Future Revenue Forecast</p>
+            <p className="text-2xl font-mono font-bold text-white">{formatIDR(futureRevenueForecast)}</p>
+            <p className="text-xs text-fuchsia-200 mt-1">From deals in Negotiation stage</p>
+          </div>
+          <div className="h-12 w-12 rounded-xl bg-fuchsia-500/20 flex items-center justify-center shrink-0">
+            <Target className="h-6 w-6 text-fuchsia-400" />
           </div>
         </div>
 
@@ -288,6 +354,17 @@ export default function Dashboard() {
           </div>
           <div className="h-12 w-12 rounded-xl bg-blue-500/20 flex items-center justify-center shrink-0">
             <Car className="h-6 w-6 text-blue-400" />
+          </div>
+        </div>
+
+        <div className="bg-gradient-to-br from-cyan-500/10 to-cyan-600/5 rounded-2xl border border-cyan-500/20 p-5 flex items-center justify-between">
+          <div>
+            <p className="text-xs font-bold text-cyan-300 uppercase tracking-widest mb-1">Driver Utilization</p>
+            <p className="text-2xl font-mono font-bold text-white">{driverMetrics.utilization.toFixed(1)}%</p>
+            <p className="text-xs text-cyan-200 mt-1">{driverMetrics.active} of {driverMetrics.total} drivers assigned</p>
+          </div>
+          <div className="h-12 w-12 rounded-xl bg-cyan-500/20 flex items-center justify-center shrink-0">
+            <Users className="h-6 w-6 text-cyan-400" />
           </div>
         </div>
       </div>
@@ -490,7 +567,7 @@ export default function Dashboard() {
 
       {/* Advanced Analytics - Charts */}
       {(currentUser.role === 'GM' || currentUser.role === 'Manager') && (
-        <div className="flex flex-col gap-6 mt-8">
+        <div className="flex flex-col gap-6">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Revenue by Product Chart */}
             <div className="rounded-3xl border border-white/10 bg-[#161d2e] p-6 shadow-xl relative overflow-hidden">
@@ -515,10 +592,10 @@ export default function Dashboard() {
                        <YAxis 
                          hide 
                        />
-                       <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(255,255,255,0.02)' }} />
+                       <Tooltip content={<TargetActualTooltip />} cursor={{ fill: 'rgba(255,255,255,0.02)' }} />
                        <Legend wrapperStyle={{ paddingTop: '20px', fontSize: '12px' }} />
-                       <Bar dataKey="target" name="Target" fill="#334155" radius={[4, 4, 0, 0]} />
-                       <Bar dataKey="actual" name="Actual" fill="#6366f1" radius={[4, 4, 0, 0]} />
+                       <Bar dataKey="target" name="Target" fill="#475569" radius={[4, 4, 0, 0]} />
+                       <Bar dataKey="actual" name="Actual" fill="#10b981" radius={[4, 4, 0, 0]} />
                      </BarChart>
                    </ResponsiveContainer>
                  </div>
@@ -552,7 +629,7 @@ export default function Dashboard() {
                              <Cell key={`cell-${index}`} fill={entry.color} />
                            ))}
                          </Pie>
-                         <Tooltip content={<CustomTooltip />} />
+                         <Tooltip content={<VolumeTooltip />} />
                          <Legend wrapperStyle={{ fontSize: '12px' }} />
                        </RePieChart>
                      </ResponsiveContainer>
@@ -591,7 +668,7 @@ export default function Dashboard() {
                            tick={{ fill: '#94a3b8', fontSize: 12 }}
                            width={80}
                          />
-                         <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(255,255,255,0.02)' }} />
+                         <Tooltip content={<CurrencyTooltip />} cursor={{ fill: 'rgba(255,255,255,0.02)' }} />
                          <Bar dataKey="totalWon" name="Total Revenue Won" fill="#f59e0b" radius={[0, 4, 4, 0]} />
                        </BarChart>
                      </ResponsiveContainer>
@@ -628,7 +705,7 @@ export default function Dashboard() {
                              <Cell key={`cell-${index}`} fill={entry.color} />
                            ))}
                          </Pie>
-                         <Tooltip content={<CustomTooltip />} />
+                         <Tooltip content={<VolumeTooltip />} />
                          <Legend wrapperStyle={{ fontSize: '12px' }} />
                        </RePieChart>
                      </ResponsiveContainer>
